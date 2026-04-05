@@ -46,11 +46,11 @@ EchoRealm este o experienta de film interactiv in realitate mixta (MR) pentru Mi
 | Unity Editor | 2022.3.62f3 LTS | Motor de joc, scena 3D, animatii |
 | MRTK3 (Mixed Reality Toolkit 3) | Latest | Gesturi, eye tracking, UI holografic |
 | Photon Fusion 2 | Free tier (20 CCU) | Sincronizare multi-HoloLens |
-| Microsoft.MixedReality.QR | Latest | Detectie QR code pt anchor spatial |
+| QR Code Tracking | Integrat in OpenXR 1.11.2 | Detectie QR code pt anchor spatial (nu mai e pachet separat) |
 | Ollama | v0.20.0+ | Server LLM local |
 | Llama 3.1 8B | 4.9 GB | Model AI pentru narativa si interpretare comenzi |
 | Visual Studio 2026 Community | v18.4.3 | IDE, build UWP |
-| Mixed Reality Feature Tool | Latest | Import pachete MRTK3 si QR |
+| Mixed Reality OpenXR Plugin | 1.11.2 (via scoped registry npm) | OpenXR + QR Code tracking |
 
 ### Software — Runtime pe HoloLens
 | Component | Scop |
@@ -275,7 +275,7 @@ Astronautul din filmul de licenta a trecut prin portal, dar nu a ajuns acasa. A 
 3. Al doilea HoloLens scaneaza acelasi QR → adopta aceeasi origine
 4. Ambele dispozitive au acum un sistem de coordonate comun
 
-**Pachet:** Microsoft.MixedReality.QR (gratuit, prin Mixed Reality Feature Tool)
+**Pachet:** QR Code tracking este integrat direct in Mixed Reality OpenXR Plugin 1.11.2+ (nu mai necesita pachet separat; Mixed Reality Feature Tool a fost DISCONTINUAT de Microsoft in 2026)
 
 #### Pasul 2: Photon Fusion 2 (Shared Mode)
 - Inlocuieste PUN 2
@@ -440,16 +440,22 @@ EchoRealm/
 
 ## 12. Planificare si pasi urmatori
 
-### Faza 1 — Setup (Aprilie 2026) [IN PROGRESS]
-- [x] Instalare Unity 2022.3 LTS + UWP
-- [x] Instalare Visual Studio 2026
-- [x] Instalare Ollama + Llama 3.1 8B
-- [x] Git repo + .gitignore
-- [x] Documentare proiect (acest fisier)
-- [ ] Creare proiect Unity "EchoRealm"
-- [ ] Configurare UWP + OpenXR + MRTK3
-- [ ] Import Photon Fusion 2
-- [ ] Import QR Code package
+### Faza 1 — Setup (Aprilie 2026) [COMPLET ~90%]
+- [x] Instalare Unity 2022.3.62f3 LTS + UWP Build Support
+- [x] Instalare Visual Studio 2026 Community (v18.4.3) + UWP workload
+- [x] Instalare Ollama v0.20.0+ + pull Llama 3.1 8B (4.9 GB)
+- [x] Git repo (https://github.com/garytheduck/EchoRealm) + .gitignore
+- [x] Documentare proiect (Project Bible + Setup Log)
+- [x] Creare proiect Unity "EchoRealm" (3D Built-In Render Pipeline)
+- [x] Configurare UWP (ARM64, D3D) + OpenXR (HoloLens feature group, Hand Tracking, Eye Gaze)
+- [x] Import MRTK3 (7 pachete via GitHub tarballs — Feature Tool discontinuat!)
+- [x] Import Mixed Reality OpenXR Plugin 1.11.2 (via scoped registry Azure DevOps)
+- [x] Import Photon Fusion 2 (Shared Mode, App ID configurat, 20 CCU free)
+- [x] QR Code tracking — integrat in OpenXR 1.11.2 (NU mai e pachet separat)
+- [x] Structura foldere Assets creata (Scripts, Prefabs, Animations, Materials, etc.)
+- [x] 2 commit-uri pe GitHub (setup initial + Photon Fusion 2)
+- [ ] Configurare Player Settings capabilities (InternetClient, Microphone, SpatialPerception, WebCam, GazeInput)
+- [ ] Creare MainScene cu MRTK XR Rig
 - [ ] Testare build UWP pe HoloLens
 
 ### Faza 2 — Networking (Mai 2026)
@@ -493,7 +499,13 @@ EchoRealm/
 
 ---
 
-## 13. Referinte cheie
+## 13. Documente interne
+
+- **[SetupLog-ProblemeIntampinate.md](SetupLog-ProblemeIntampinate.md)** — Log detaliat al procesului de instalare, toate problemele intampinate si solutiile gasite (inclusiv discontinuarea Mixed Reality Feature Tool)
+
+---
+
+## 14. Referinte cheie
 
 - [MRTK3 Documentation](https://learn.microsoft.com/en-us/windows/mixed-reality/mrtk-unity/mrtk3-overview/)
 - [Photon Fusion 2 Documentation](https://doc.photonengine.com/fusion/current/getting-started/fusion-intro)
