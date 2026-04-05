@@ -84,3 +84,6 @@ licenta_output.md
 
 # Claude local files
 .claude/
+
+# Thesis document (personal, not for repo)
+*.docx
