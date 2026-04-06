@@ -21,7 +21,7 @@ namespace EchoRealm.AI
         [SerializeField] private string serverUrl = "http://127.0.0.1:11500";
 
         [Tooltip("Model to use for generation.")]
-        [SerializeField] private string modelName = "llama3.1:8b";
+        [SerializeField] private string modelName = "llama3.2:3b";
 
         [Header("Request Settings")]
         [Tooltip("Request timeout in seconds.")]
@@ -124,15 +124,16 @@ namespace EchoRealm.AI
             string commandList = string.Join(", ", availableCommands);
 
             string prompt =
-                "You are the AI director of EchoRealm, a mixed reality experience on HoloLens 2. " +
+                "You are the AI director of EchoRealm, a mixed reality film on HoloLens 2. " +
                 $"Available commands: [{commandList}]. " +
-                $"Current scene state: {sceneState}. " +
-                $"User said: '{userSpeech}'. " +
-                "Return ONLY valid JSON with these fields: " +
-                "\"commands\" (array of command strings from available list), " +
-                "\"consequence\" (one sentence describing what happens next in the story), " +
-                "\"dobby_dialogue\" (what Dobby says in response, in character), " +
-                "\"mood\" (one word: joyful/scared/curious/mysterious/calm/excited/sad).";
+                $"Scene: {sceneState}. " +
+                $"User said: \"{userSpeech}\". " +
+                "Respond with JSON containing ALL of these fields: " +
+                "commands (array of command strings from the available list), " +
+                "consequence (string: what happens next in the story), " +
+                "dobby_dialogue (string: what Dobby the character says in response), " +
+                "mood (string: one of joyful/scared/curious/mysterious/calm/excited/sad). " +
+                "ALL fields must have string values, not null.";
 
             string responseText = await SendPromptAsync(prompt);
             if (string.IsNullOrEmpty(responseText)) return null;
