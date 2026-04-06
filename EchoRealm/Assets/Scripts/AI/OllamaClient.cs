@@ -18,7 +18,7 @@ namespace EchoRealm.AI
     {
         [Header("Ollama Server")]
         [Tooltip("Base URL of the Ollama server. Default: http://localhost:11434")]
-        [SerializeField] private string serverUrl = "http://localhost:11434";
+        [SerializeField] private string serverUrl = "http://127.0.0.1:11500";
 
         [Tooltip("Model to use for generation.")]
         [SerializeField] private string modelName = "llama3.1:8b";
