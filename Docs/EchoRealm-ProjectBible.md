@@ -48,7 +48,7 @@ EchoRealm este o experienta de film interactiv in realitate mixta (MR) pentru Mi
 | Photon Fusion 2 | Free tier (20 CCU) | Sincronizare multi-HoloLens |
 | QR Code Tracking | Integrat in OpenXR 1.11.2 | Detectie QR code pt anchor spatial (nu mai e pachet separat) |
 | Ollama | v0.20.0+ | Server LLM local |
-| Llama 3.1 8B | 4.9 GB | Model AI pentru narativa si interpretare comenzi |
+| Llama 3.2 3B | 2.0 GB | Model AI pentru narativa si interpretare comenzi |
 | Visual Studio 2026 Community | v18.4.3 | IDE, build UWP |
 | Mixed Reality OpenXR Plugin | 1.11.2 (via scoped registry npm) | OpenXR + QR Code tracking |
 
@@ -63,8 +63,8 @@ EchoRealm este o experienta de film interactiv in realitate mixta (MR) pentru Mi
 ### Software — Runtime pe PC
 | Component | Scop |
 |-----------|------|
-| Ollama (localhost:11434) | Server API pentru LLM |
-| Llama 3.1 8B | Procesare comenzi vocale, generare naratie |
+| Ollama (localhost:11500) | Server API pentru LLM (port 11500, nu default 11434 — blocat de Hyper-V) |
+| Llama 3.2 3B | Procesare comenzi vocale, generare naratie |
 
 ### Platforme de build
 - Universal Windows Platform (UWP)
@@ -109,9 +109,9 @@ EchoRealm este o experienta de film interactiv in realitate mixta (MR) pentru Mi
                           ▼
               ┌───────────────────────┐
               │   PC — Ollama Server  │
-              │   localhost:11434     │
+              │   localhost:11500     │
               │                       │
-              │   Llama 3.1 8B        │
+              │   Llama 3.2 3B        │
               │                       │
               │   Returneaza:         │
               │   - comenzi pt Unity  │
@@ -201,7 +201,7 @@ Astronautul din filmul de licenta a trecut prin portal, dar nu a ajuns acasa. A 
 
 ---
 
-## 6. Rolul AI-ului (Ollama + Llama 3.1 8B)
+## 6. Rolul AI-ului (Ollama + Llama 3.2 3B)
 
 ### Ce face AI-ul (valoare reala, nu if/else)
 
@@ -443,7 +443,7 @@ EchoRealm/
 ### Faza 1 — Setup (Aprilie 2026) [COMPLET ~90%]
 - [x] Instalare Unity 2022.3.62f3 LTS + UWP Build Support
 - [x] Instalare Visual Studio 2026 Community (v18.4.3) + UWP workload
-- [x] Instalare Ollama v0.20.0+ + pull Llama 3.1 8B (4.9 GB)
+- [x] Instalare Ollama v0.20.0+ + pull Llama 3.2 3B (2.0 GB) — port 11500 (Hyper-V blocheaza 11434)
 - [x] Git repo (https://github.com/garytheduck/EchoRealm) + .gitignore
 - [x] Documentare proiect (Project Bible + Setup Log)
 - [x] Creare proiect Unity "EchoRealm" (3D Built-In Render Pipeline)

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using EchoRealm.Effects;
 
 namespace EchoRealm.AI
 {
@@ -9,8 +10,8 @@ namespace EchoRealm.AI
     /// and character behaviors. Maps string command names from Ollama responses
     /// to concrete Unity actions.
     ///
-    /// Each command corresponds to a pre-built effect (particle system, animation,
-    /// shader change, etc.) that is ready in the scene as a disabled GameObject or component.
+    /// Uses WeatherController, EnvironmentController, and CameraEffects
+    /// for particle effects (auto-created if not manually assigned).
     /// </summary>
     public class CommandExecutor : MonoBehaviour
     {
@@ -22,29 +23,16 @@ namespace EchoRealm.AI
         [SerializeField] private bool hasFire = false;
         [SerializeField] private bool pathOpen = true;
 
-        [Header("Effect References (assign in Inspector)")]
-        [Tooltip("Particle system for rain effect.")]
-        [SerializeField] private ParticleSystem rainEffect;
-        [Tooltip("Particle system for fire effect.")]
-        [SerializeField] private ParticleSystem fireEffect;
-        [Tooltip("Particle system for fog/mist.")]
-        [SerializeField] private ParticleSystem fogEffect;
-        [Tooltip("Particle system for wind/leaves.")]
-        [SerializeField] private ParticleSystem windEffect;
-        [Tooltip("Particle system for butterflies.")]
-        [SerializeField] private ParticleSystem butterfliesEffect;
-        [Tooltip("Particle system for fireflies.")]
-        [SerializeField] private ParticleSystem firefliesEffect;
-        [Tooltip("Particle system for dust (earthquake).")]
-        [SerializeField] private ParticleSystem dustEffect;
+        [Header("Effect Controllers (auto-found if null)")]
+        [SerializeField] private WeatherController weatherController;
+        [SerializeField] private EnvironmentController environmentController;
+        [SerializeField] private CameraEffects cameraEffects;
+        [SerializeField] private SkyboxController skyboxController;
 
         [Header("Environment References")]
         [SerializeField] private GameObject forestGroup;
         [SerializeField] private GameObject flowersGroup;
         [SerializeField] private GameObject pathBlockade;
-        [SerializeField] private Light mainLight;
-        [SerializeField] private Material daySkybox;
-        [SerializeField] private Material nightSkybox;
 
         [Header("Character References")]
         [SerializeField] private Animator dobbyAnimator;
@@ -86,6 +74,12 @@ namespace EchoRealm.AI
                 return;
             }
             Instance = this;
+
+            // Auto-find controllers if not assigned
+            if (weatherController == null) weatherController = FindObjectOfType<WeatherController>();
+            if (environmentController == null) environmentController = FindObjectOfType<EnvironmentController>();
+            if (cameraEffects == null) cameraEffects = FindObjectOfType<CameraEffects>();
+            if (skyboxController == null) skyboxController = FindObjectOfType<SkyboxController>();
         }
 
         // ------------------------------------------------------------------
@@ -139,54 +133,57 @@ namespace EchoRealm.AI
 
             switch (command)
             {
-                // --- Weather ---
+                // --- Weather (via WeatherController) ---
                 case "rain":
-                    SetParticle(rainEffect, true);
+                    if (weatherController != null) weatherController.SetEffect(weatherController.Rain, true);
                     isRaining = true;
                     break;
                 case "stop_rain":
-                    SetParticle(rainEffect, false);
+                    if (weatherController != null) weatherController.SetEffect(weatherController.Rain, false);
                     isRaining = false;
                     break;
 
                 case "night":
-                    SetTimeOfDay(night: true);
+                    if (skyboxController != null) skyboxController.TransitionToNight();
+                    isNight = true;
                     break;
                 case "day":
-                    SetTimeOfDay(night: false);
+                    if (skyboxController != null) skyboxController.TransitionToDay();
+                    isNight = false;
                     break;
 
                 case "fire":
-                    SetParticle(fireEffect, true);
+                    if (environmentController != null) environmentController.SetFire(true);
                     hasFire = true;
                     break;
                 case "stop_fire":
-                    SetParticle(fireEffect, false);
+                    if (environmentController != null) environmentController.SetFire(false);
                     hasFire = false;
                     break;
 
                 case "wind":
-                    SetParticle(windEffect, true);
+                    if (weatherController != null) weatherController.SetEffect(weatherController.Wind, true);
                     break;
                 case "stop_wind":
-                    SetParticle(windEffect, false);
+                    if (weatherController != null) weatherController.SetEffect(weatherController.Wind, false);
                     break;
 
                 case "fog":
-                    SetParticle(fogEffect, true);
+                    if (weatherController != null) weatherController.SetEffect(weatherController.Fog, true);
                     hasFog = true;
                     break;
                 case "stop_fog":
-                    SetParticle(fogEffect, false);
+                    if (weatherController != null) weatherController.SetEffect(weatherController.Fog, false);
                     hasFog = false;
                     break;
 
                 case "earthquake":
-                    StartCoroutine(EarthquakeSequence());
+                    if (cameraEffects != null) cameraEffects.Earthquake();
+                    if (weatherController != null) weatherController.SetEffect(weatherController.Dust, true);
                     break;
 
                 case "lightning":
-                    StartCoroutine(LightningFlash());
+                    if (cameraEffects != null) cameraEffects.LightningFlash();
                     break;
 
                 // --- Environment ---
@@ -206,21 +203,20 @@ namespace EchoRealm.AI
                     break;
 
                 case "spawn_butterflies":
-                    SetParticle(butterfliesEffect, true);
+                    if (environmentController != null) environmentController.SetEffect(environmentController.Butterflies, true);
                     break;
                 case "stop_butterflies":
-                    SetParticle(butterfliesEffect, false);
+                    if (environmentController != null) environmentController.SetEffect(environmentController.Butterflies, false);
                     break;
 
                 case "spawn_fireflies":
-                    SetParticle(firefliesEffect, true);
+                    if (environmentController != null) environmentController.SetEffect(environmentController.Fireflies, true);
                     break;
                 case "stop_fireflies":
-                    SetParticle(firefliesEffect, false);
+                    if (environmentController != null) environmentController.SetEffect(environmentController.Fireflies, false);
                     break;
 
                 case "shrink_scene":
-                    // Handled externally by SceneRoot scale animation
                     Log("shrink_scene — trigger scale animation on SceneRoot.");
                     break;
 
@@ -264,26 +260,6 @@ namespace EchoRealm.AI
         // Effect Helpers
         // ------------------------------------------------------------------
 
-        private void SetParticle(ParticleSystem ps, bool active)
-        {
-            if (ps == null)
-            {
-                Log("ParticleSystem reference not assigned.", isWarning: true);
-                return;
-            }
-
-            if (active)
-            {
-                ps.gameObject.SetActive(true);
-                ps.Play();
-            }
-            else
-            {
-                ps.Stop();
-                ps.gameObject.SetActive(false);
-            }
-        }
-
         private void SetGameObject(GameObject go, bool active)
         {
             if (go == null)
@@ -294,24 +270,6 @@ namespace EchoRealm.AI
             go.SetActive(active);
         }
 
-        private void SetTimeOfDay(bool night)
-        {
-            isNight = night;
-
-            if (mainLight != null)
-            {
-                mainLight.intensity = night ? 0.1f : 1.0f;
-                mainLight.color = night ? new Color(0.3f, 0.3f, 0.5f) : Color.white;
-            }
-
-            if (night && nightSkybox != null)
-                RenderSettings.skybox = nightSkybox;
-            else if (!night && daySkybox != null)
-                RenderSettings.skybox = daySkybox;
-
-            Log($"Time of day: {(night ? "NIGHT" : "DAY")}");
-        }
-
         private void TriggerAnimation(Animator animator, string triggerName)
         {
             if (animator == null)
@@ -320,56 +278,6 @@ namespace EchoRealm.AI
                 return;
             }
             animator.SetTrigger(triggerName);
-        }
-
-        private System.Collections.IEnumerator EarthquakeSequence()
-        {
-            SetParticle(dustEffect, true);
-
-            // Simple camera shake for 2 seconds
-            var cam = Camera.main;
-            if (cam != null)
-            {
-                Vector3 originalPos = cam.transform.localPosition;
-                float elapsed = 0f;
-                float duration = 2f;
-                float magnitude = 0.05f;
-
-                while (elapsed < duration)
-                {
-                    float x = UnityEngine.Random.Range(-1f, 1f) * magnitude;
-                    float y = UnityEngine.Random.Range(-1f, 1f) * magnitude;
-                    cam.transform.localPosition = originalPos + new Vector3(x, y, 0);
-                    elapsed += Time.deltaTime;
-                    yield return null;
-                }
-
-                cam.transform.localPosition = originalPos;
-            }
-
-            yield return new WaitForSeconds(1f);
-            SetParticle(dustEffect, false);
-        }
-
-        private System.Collections.IEnumerator LightningFlash()
-        {
-            if (mainLight == null) yield break;
-
-            float originalIntensity = mainLight.intensity;
-            Color originalColor = mainLight.color;
-
-            // Flash sequence
-            mainLight.color = Color.white;
-            mainLight.intensity = 3f;
-            yield return new WaitForSeconds(0.1f);
-            mainLight.intensity = 0.5f;
-            yield return new WaitForSeconds(0.05f);
-            mainLight.intensity = 2.5f;
-            yield return new WaitForSeconds(0.15f);
-
-            // Return to original
-            mainLight.intensity = originalIntensity;
-            mainLight.color = originalColor;
         }
 
         // ------------------------------------------------------------------

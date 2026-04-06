@@ -238,13 +238,69 @@ Pachetele MRTK3 nu sunt pe npm feed. Sunt disponibile doar ca `.tgz` pe GitHub R
 | 9 | Tag-uri GitHub gresit formatate | MEDIE | Descoperit format `core-v3.3.0` prin API | 30 min |
 | 10 | Graphics Tools v0.8.8 inexistent | MINORA | Folosit v0.8.1 (ultima versiune) | 10 min |
 | 11 | QR package separat | INFORMATIVA | Nu mai e necesar (integrat in OpenXR 1.11.x) | 0 min |
+| 12 | **Ollama port 11434 blocat de Hyper-V** | **MEDIE** | **Folosit port 11500** | **30 min** |
+| 13 | Llama 3.1 8B prea lent pe CPU (44-76s) | MEDIE | Trecut pe Llama 3.2 3B (15-35s) | 20 min |
 
-### Timp total estimat pierdut pe probleme: ~3.5 ore
-### Timp total setup (cu probleme incluse): ~6-7 ore
+### Timp total estimat pierdut pe probleme: ~4.5 ore
+### Timp total setup (cu probleme incluse): ~8 ore
 
 ---
 
-## 10. Recomandari pentru reproducerea proiectului
+## 10. Testare Ollama — Rezultate
+
+### Problema 12: Portul default Ollama (11434) blocat de Windows Hyper-V
+
+- **Descriere:** Ollama nu poate porni pe portul default 11434
+- **Cauza:** Windows Hyper-V rezerva range-ul de porturi 11385-11484 (`netsh interface ipv4 show excludedportrange protocol=tcp`)
+- **Eroare:** `Error: listen tcp 127.0.0.1:11434: bind: An attempt was made to access a socket in a way forbidden by its access permissions.`
+- **Solutie:** Pornire Ollama pe port 11500:
+  ```powershell
+  $env:OLLAMA_HOST="127.0.0.1:11500"
+  C:\Users\Samuel\AppData\Local\Programs\Ollama\ollama.exe serve
+  ```
+- **Important:** Terminalul trebuie lasat deschis. OllamaClient.cs configurat cu `http://127.0.0.1:11500`
+
+### Problema 13: Llama 3.1 8B prea lent pe CPU
+
+- **Descriere:** Pe CPU (fara GPU dedicat), Llama 3.1 8B genereaza raspunsuri in 44-76 secunde — prea mult pentru o experienta interactiva
+- **Cauza:** Modelul de 4.9 GB ruleaza exclusiv pe CPU (total_vram="0 B"); PC-ul are 35.9 GB RAM, 18 GB disponibil
+- **Solutie:** Trecut pe **Llama 3.2 3B** (~2 GB), de ~3x mai rapid
+
+### Rezultate benchmark Ollama
+
+| Model | Dimensiune | Prima cerere (include loading) | Cereri ulterioare | Calitate JSON |
+|-------|-----------|-------------------------------|-------------------|---------------|
+| llama3.1:8b | 4.9 GB | 76s | 44s | Excelenta |
+| **llama3.2:3b** | ~2 GB | **15s** | **35s** | **Foarte buna** |
+
+### Exemplu de prompt si raspuns (llama3.2:3b)
+
+**Prompt:**
+```
+User said: "set everything on fire and make it night"
+Scene: day, no effects active
+```
+
+**Raspuns AI (35s):**
+```json
+{
+  "commands": ["fire", "night"],
+  "consequence": "The world around you erupts in flames as night falls. The sky is painted with hues of orange and red.",
+  "dobby_dialogue": "Oh dear, oh dear! Fire everywhere! What shall we do?!",
+  "mood": "scared"
+}
+```
+
+**Observatii:**
+- AI-ul alege **comenzile corecte** din lista disponibila
+- Genereaza **dialog in-character** pentru Dobby
+- Adauga **consecinte narative logice** (foc → cer rosu)
+- Detecteaza **mood-ul corect** (scared — foc = frica)
+- Promptul trebuie sa specifice explicit "ALL fields must have string values, not null" pentru modelul 3B
+
+---
+
+## 11. Recomandari pentru reproducerea proiectului
 
 Daca cineva doreste sa reproduca acest setup in viitor:
 
@@ -256,8 +312,10 @@ Daca cineva doreste sa reproduca acest setup in viitor:
 6. **QR Code tracking** este deja inclus in OpenXR Plugin 1.11.2+ (nu mai trebuie pachet separat)
 7. **Visual Studio 2026** functioneaza perfect cu Unity 2022.3 (nu e nevoie de VS 2022)
 8. **Bifati UWP Build Support** la instalarea Unity (altfel trebuie adaugat separat)
+9. **Ollama port 11500** — daca portul default 11434 e blocat de Hyper-V, folositi alt port
+10. **Llama 3.2 3B** recomandat peste 3.1 8B pe CPU — de 3x mai rapid, calitate suficienta
 
 ---
 
 *Document creat: Aprilie 2026*
-*Ultima actualizare: 5 Aprilie 2026*
+*Ultima actualizare: 6 Aprilie 2026*
