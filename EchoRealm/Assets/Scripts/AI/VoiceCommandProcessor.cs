@@ -1,0 +1,301 @@
+// CS0414: fields used only in UWP builds appear "unused" in Editor
+// CS1998: async method without await (Start has await only in UWP)
+#pragma warning disable CS0414, CS1998
+
+using System;
+using UnityEngine;
+
+#if WINDOWS_UWP
+using Windows.Media.SpeechRecognition;
+using System.Threading.Tasks;
+#endif
+
+namespace EchoRealm.AI
+{
+    /// <summary>
+    /// Captures voice input from HoloLens 2 microphone using Windows Speech Recognition,
+    /// converts it to text, and forwards it to OllamaClient for AI interpretation.
+    ///
+    /// On HoloLens (UWP): Uses Windows.Media.SpeechRecognition (free, built-in, no internet needed).
+    /// In Unity Editor: Uses a debug text field for testing.
+    /// </summary>
+    public class VoiceCommandProcessor : MonoBehaviour
+    {
+        [Header("References")]
+        [SerializeField] private OllamaClient ollamaClient;
+        [SerializeField] private CommandExecutor commandExecutor;
+
+        [Header("Voice Settings")]
+        [Tooltip("Minimum confidence threshold for speech recognition (0-1).")]
+        [SerializeField, Range(0f, 1f)] private float confidenceThreshold = 0.5f;
+
+        [Tooltip("If true, speech recognition restarts automatically after each utterance.")]
+        [SerializeField] private bool continuousListening = true;
+
+        [Header("Debug")]
+        [SerializeField] private bool logEvents = true;
+
+        /// <summary>True if voice recognition is active and listening.</summary>
+        public bool IsListening { get; private set; }
+
+        /// <summary>The last recognized speech text.</summary>
+        public string LastRecognizedText { get; private set; }
+
+        /// <summary>Fired when speech is recognized, before AI processing.</summary>
+        public event Action<string> OnSpeechRecognized;
+
+        /// <summary>Fired when AI finishes processing and returns commands.</summary>
+        public event Action<AICommandResponse> OnAIResponseReceived;
+
+        public static VoiceCommandProcessor Instance { get; private set; }
+
+#if WINDOWS_UWP
+        private SpeechRecognizer speechRecognizer;
+#endif
+
+        private void Awake()
+        {
+            if (Instance != null && Instance != this)
+            {
+                Destroy(gameObject);
+                return;
+            }
+            Instance = this;
+        }
+
+        private async void Start()
+        {
+            if (ollamaClient == null)
+                ollamaClient = FindObjectOfType<OllamaClient>();
+            if (commandExecutor == null)
+                commandExecutor = FindObjectOfType<CommandExecutor>();
+
+#if WINDOWS_UWP
+            await InitializeSpeechRecognition();
+#else
+            Log("Running in Editor — use ProcessDebugInput() to simulate voice commands.");
+#endif
+        }
+
+        // ------------------------------------------------------------------
+        // Public API
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// Start listening for voice input.
+        /// </summary>
+        public void StartListening()
+        {
+            if (IsListening) return;
+
+#if WINDOWS_UWP
+            StartContinuousRecognition();
+#else
+            Log("StartListening called in Editor — no-op. Use ProcessDebugInput().");
+#endif
+            IsListening = true;
+            Log("Voice recognition STARTED.");
+        }
+
+        /// <summary>
+        /// Stop listening for voice input.
+        /// </summary>
+        public void StopListening()
+        {
+            if (!IsListening) return;
+
+#if WINDOWS_UWP
+            StopContinuousRecognition();
+#endif
+            IsListening = false;
+            Log("Voice recognition STOPPED.");
+        }
+
+        /// <summary>
+        /// Process a text command directly (for Editor testing or text input fallback).
+        /// </summary>
+        public async void ProcessDebugInput(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return;
+            Log($"Processing debug input: '{text}'");
+            await ProcessSpeechText(text);
+        }
+
+        // ------------------------------------------------------------------
+        // Speech-to-Text (UWP / HoloLens)
+        // ------------------------------------------------------------------
+
+#if WINDOWS_UWP
+        private async Task InitializeSpeechRecognition()
+        {
+            try
+            {
+                speechRecognizer = new SpeechRecognizer();
+
+                // Use free-form dictation (understands any phrase)
+                var dictationConstraint = new SpeechRecognitionTopicConstraint(
+                    SpeechRecognitionScenario.Dictation, "EchoRealmDictation");
+                speechRecognizer.Constraints.Add(dictationConstraint);
+
+                var compileResult = await speechRecognizer.CompileConstraintsAsync();
+                if (compileResult.Status != SpeechRecognitionResultStatus.Success)
+                {
+                    Debug.LogError($"[Voice] Failed to compile speech constraints: {compileResult.Status}");
+                    return;
+                }
+
+                // Wire up continuous recognition events
+                speechRecognizer.ContinuousRecognitionSession.ResultGenerated += OnSpeechResult;
+                speechRecognizer.ContinuousRecognitionSession.Completed += OnSpeechSessionCompleted;
+
+                Log("Speech recognizer initialized. Ready to listen.");
+
+                if (continuousListening)
+                    StartListening();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[Voice] Speech recognition init failed: {ex.Message}");
+            }
+        }
+
+        private async void StartContinuousRecognition()
+        {
+            try
+            {
+                await speechRecognizer.ContinuousRecognitionSession.StartAsync();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[Voice] Failed to start continuous recognition: {ex.Message}");
+            }
+        }
+
+        private async void StopContinuousRecognition()
+        {
+            try
+            {
+                await speechRecognizer.ContinuousRecognitionSession.StopAsync();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[Voice] Failed to stop recognition: {ex.Message}");
+            }
+        }
+
+        private void OnSpeechResult(SpeechContinuousRecognitionSession sender,
+                                     SpeechContinuousRecognitionResultGeneratedEventArgs args)
+        {
+            if (args.Result.Confidence == SpeechRecognitionConfidence.Rejected)
+            {
+                Log("Speech rejected (too low confidence).");
+                return;
+            }
+
+            float confidence = (float)args.Result.RawConfidence;
+            string text = args.Result.Text;
+
+            if (confidence < confidenceThreshold)
+            {
+                Log($"Speech below threshold: '{text}' (confidence: {confidence:F2})");
+                return;
+            }
+
+            Log($"Speech recognized: '{text}' (confidence: {confidence:F2})");
+
+            // Must dispatch to Unity main thread
+            UnityEngine.WSA.Application.InvokeOnAppThread(async () =>
+            {
+                await ProcessSpeechText(text);
+            }, false);
+        }
+
+        private void OnSpeechSessionCompleted(SpeechContinuousRecognitionSession sender,
+                                               SpeechContinuousRecognitionCompletedEventArgs args)
+        {
+            Log($"Speech session completed: {args.Status}");
+            IsListening = false;
+
+            if (continuousListening && args.Status == SpeechRecognitionResultStatus.Success)
+            {
+                // Restart listening
+                UnityEngine.WSA.Application.InvokeOnAppThread(() => StartListening(), false);
+            }
+        }
+#endif
+
+        // ------------------------------------------------------------------
+        // AI Processing Pipeline
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// Core pipeline: speech text → Ollama AI → execute commands.
+        /// </summary>
+        private async System.Threading.Tasks.Task ProcessSpeechText(string text)
+        {
+            LastRecognizedText = text;
+            OnSpeechRecognized?.Invoke(text);
+
+            if (ollamaClient == null || !ollamaClient.IsServerReachable)
+            {
+                Debug.LogWarning("[Voice] Ollama not available. Cannot process voice command.");
+                return;
+            }
+
+            if (ollamaClient.IsBusy)
+            {
+                Log("Ollama is busy processing another request. Skipping.");
+                return;
+            }
+
+            // Get current scene state from CommandExecutor
+            string sceneState = commandExecutor != null ? commandExecutor.GetSceneStateDescription() : "unknown";
+            string[] availableCommands = commandExecutor != null ? commandExecutor.GetAvailableCommands() : new string[0];
+
+            Log($"Sending to AI: speech='{text}', scene='{sceneState}'");
+
+            // Send to Ollama for AI interpretation
+            var response = await ollamaClient.SendCommandRequestAsync(text, sceneState, availableCommands);
+
+            if (response != null)
+            {
+                Log($"AI response: commands=[{string.Join(", ", response.commands ?? new string[0])}], " +
+                    $"mood={response.mood}, dialogue='{response.dobby_dialogue}'");
+
+                OnAIResponseReceived?.Invoke(response);
+
+                // Execute the commands
+                if (commandExecutor != null && response.commands != null)
+                {
+                    commandExecutor.ExecuteCommands(response);
+                }
+            }
+            else
+            {
+                Log("AI returned null response.", isWarning: true);
+            }
+        }
+
+        private void OnDestroy()
+        {
+#if WINDOWS_UWP
+            if (speechRecognizer != null)
+            {
+                speechRecognizer.ContinuousRecognitionSession.ResultGenerated -= OnSpeechResult;
+                speechRecognizer.ContinuousRecognitionSession.Completed -= OnSpeechSessionCompleted;
+                speechRecognizer.Dispose();
+                speechRecognizer = null;
+            }
+#endif
+        }
+
+        private void Log(string message, bool isWarning = false)
+        {
+            if (!logEvents) return;
+            if (isWarning)
+                Debug.LogWarning($"[Voice] {message}");
+            else
+                Debug.Log($"[Voice] {message}");
+        }
+    }
+}
