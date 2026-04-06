@@ -140,12 +140,16 @@ namespace EchoRealm.Film
             if (voiceProcessor != null)
                 voiceProcessor.StartListening();
 
-            // Narrative starts at Act 1
-            if (narrativeManager != null)
-                Debug.Log($"[Boot] Narrative manager ready. Act: {narrativeManager.CurrentAct}");
-
-            // TODO: Trigger Act 1 intro sequence (Oracle appears, intro dialogue)
-            // This will be implemented in FilmDirector.cs
+            // Start the film via FilmDirector
+            var filmDirector = FindObjectOfType<FilmDirector>();
+            if (filmDirector != null)
+            {
+                filmDirector.StartFilm();
+            }
+            else
+            {
+                Debug.LogWarning("[Boot] FilmDirector not found. Film will not auto-start.");
+            }
         }
 
         private void SetStatus(string message)
