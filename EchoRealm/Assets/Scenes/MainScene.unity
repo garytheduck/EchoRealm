@@ -189,6 +189,8 @@ GameObject:
   m_Component:
   - component: {fileID: 126231479}
   - component: {fileID: 126231478}
+  - component: {fileID: 126231481}
+  - component: {fileID: 126231480}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -231,6 +233,45 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &126231480
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 126231477}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7735701505795804c9a4844641d5234f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  oracleIntroLines:
+  - Welcome to EchoRealm.
+  - This world listens. Your voice shapes reality.
+  - Find the Origin Echo to return home.
+  - Speak... and the world will answer.
+  introLinePause: 3
+  challengeObstacle: {fileID: 0}
+  cooperationGoal: 3
+  portalEffect: {fileID: 0}
+  logEvents: 1
+--- !u!114 &126231481
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 126231477}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4fefb787b8fa4f24194697c2cc11a5c9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  actManager: {fileID: 126231480}
+  minVoiceCommands: 5
+  act2MaxDuration: 180
+  endScreen: {fileID: 0}
+  logEvents: 1
 --- !u!1 &705507993
 GameObject:
   m_ObjectHideFlags: 0
@@ -325,7 +366,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 50, y: -30, z: 0}
---- !u!1 &878280920
+--- !u!1 &841888582
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -333,36 +374,44 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 878280922}
-  - component: {fileID: 878280921}
+  - component: {fileID: 841888584}
+  - component: {fileID: 841888583}
   m_Layer: 0
-  m_Name: XR Interaction Manager
+  m_Name: WeatherEffects
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &878280921
+--- !u!114 &841888583
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 878280920}
+  m_GameObject: {fileID: 841888582}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 83e4e6cca11330d4088d729ab4fc9d9f, type: 3}
+  m_Script: {fileID: 11500000, guid: 8de6354c07728fa4b9b33516d01692ad, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_StartingHoverFilters: []
-  m_StartingSelectFilters: []
---- !u!4 &878280922
+  rainSystem: {fileID: 0}
+  fogSystem: {fileID: 0}
+  windSystem: {fileID: 0}
+  dustSystem: {fileID: 0}
+  rainParticleCount: 500
+  rainColor: {r: 0.7, g: 0.8, b: 1, a: 0.5}
+  fogParticleCount: 100
+  fogColor: {r: 0.8, g: 0.8, b: 0.9, a: 0.15}
+  windParticleCount: 200
+  windLeafColor: {r: 0.3, g: 0.6, b: 0.2, a: 0.8}
+--- !u!4 &841888584
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 878280920}
+  m_GameObject: {fileID: 841888582}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -509,7 +558,6 @@ GameObject:
   m_Component:
   - component: {fileID: 963194228}
   - component: {fileID: 963194227}
-  - component: {fileID: 963194226}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -517,14 +565,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!81 &963194226
-AudioListener:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 963194225}
-  m_Enabled: 1
 --- !u!20 &963194227
 Camera:
   m_ObjectHideFlags: 0
@@ -639,6 +679,111 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1434805925
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1434805927}
+  - component: {fileID: 1434805926}
+  m_Layer: 0
+  m_Name: SkyboxController
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1434805926
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1434805925}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a587f92500b6eb84aa80cb5db3086319, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  daySkybox: {fileID: 0}
+  nightSkybox: {fileID: 0}
+  mainDirectionalLight: {fileID: 705507994}
+  dayLightColor: {r: 1, g: 0.96, b: 0.9, a: 1}
+  dayLightIntensity: 1
+  dayAmbientColor: {r: 0.5, g: 0.55, b: 0.6, a: 1}
+  dayFogColor: {r: 0.7, g: 0.8, b: 0.9, a: 1}
+  nightLightColor: {r: 0.2, g: 0.25, b: 0.4, a: 1}
+  nightLightIntensity: 0.15
+  nightAmbientColor: {r: 0.05, g: 0.05, b: 0.15, a: 1}
+  nightFogColor: {r: 0.02, g: 0.02, b: 0.06, a: 1}
+  transitionDuration: 3
+--- !u!4 &1434805927
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1434805925}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1518294830
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1518294832}
+  - component: {fileID: 1518294831}
+  m_Layer: 0
+  m_Name: CameraEffects
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1518294831
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1518294830}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cca303a7f92fb1243a98e35fb198aab2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  sceneRoot: {fileID: 923872860}
+  mainLight: {fileID: 705507994}
+  shakeDuration: 2
+  shakeMagnitude: 0.03
+  flashIntensity: 5
+--- !u!4 &1518294832
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1518294830}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1528257427
 GameObject:
   m_ObjectHideFlags: 0
@@ -722,19 +867,13 @@ MonoBehaviour:
   hasForest: 0
   hasFire: 0
   pathOpen: 1
-  rainEffect: {fileID: 0}
-  fireEffect: {fileID: 0}
-  fogEffect: {fileID: 0}
-  windEffect: {fileID: 0}
-  butterfliesEffect: {fileID: 0}
-  firefliesEffect: {fileID: 0}
-  dustEffect: {fileID: 0}
+  weatherController: {fileID: 0}
+  environmentController: {fileID: 0}
+  cameraEffects: {fileID: 0}
+  skyboxController: {fileID: 0}
   forestGroup: {fileID: 0}
   flowersGroup: {fileID: 0}
   pathBlockade: {fileID: 0}
-  mainLight: {fileID: 0}
-  daySkybox: {fileID: 0}
-  nightSkybox: {fileID: 0}
   dobbyAnimator: {fileID: 0}
   astronautAnimator: {fileID: 0}
   logCommands: 1
@@ -794,6 +933,59 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1707791708}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1772621086
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1772621088}
+  - component: {fileID: 1772621087}
+  m_Layer: 0
+  m_Name: EnvironmentEffects
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1772621087
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1772621086}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d70296a78da96114a8c445f5c2e7cb6a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  fireSystem: {fileID: 0}
+  butterfliesSystem: {fileID: 0}
+  firefliesSystem: {fileID: 0}
+  fireColorStart: {r: 1, g: 0.6, b: 0, a: 0.8}
+  fireColorEnd: {r: 1, g: 0, b: 0, a: 0}
+  fireflyColor: {r: 0.8, g: 1, b: 0.3, a: 0.9}
+  fireflyCount: 50
+  butterflyCount: 20
+  fireLight: {fileID: 0}
+--- !u!4 &1772621088
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1772621086}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -920,6 +1112,9 @@ SceneRoots:
   - {fileID: 1647323527}
   - {fileID: 1978978735}
   - {fileID: 923872860}
-  - {fileID: 878280922}
   - {fileID: 2102049669}
   - {fileID: 29821783}
+  - {fileID: 841888584}
+  - {fileID: 1772621088}
+  - {fileID: 1518294832}
+  - {fileID: 1434805927}
