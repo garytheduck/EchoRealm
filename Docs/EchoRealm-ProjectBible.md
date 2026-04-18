@@ -241,7 +241,7 @@ Astronautul din filmul de licenta a trecut prin portal, dar nu a ajuns acasa. A 
 **Request (Unity → Ollama):**
 ```json
 {
-  "model": "llama3.1:8b",
+  "model": "llama3.2:3b",
   "prompt": "You are the AI director of EchoRealm, a mixed reality experience. Available commands: [rain, night, day, fire, wind, earthquake, open_path, close_path, dobby_dance, dobby_wave, dobby_scared, astronaut_jump, spawn_butterflies, spawn_fireflies, lightning, grow_tree, grow_flowers, shrink_scene, glow_objects, fog]. Current scene state: night, forest visible, no rain. User said: 'I want to see fireflies and make Dobby dance'. Return ONLY valid JSON.",
   "format": "json",
   "stream": false
@@ -476,7 +476,7 @@ EchoRealm/
 - [ ] Implementare VoiceCommandProcessor.cs (speech-to-text)
 - [ ] Implementare CommandExecutor.cs (mapare comenzi → efecte Unity)
 - [ ] Implementare NarrativeManager.cs (context tracking, naratie)
-- [ ] Prompt engineering pentru Llama 3.1 (optimizare raspunsuri)
+- [ ] Prompt engineering pentru Llama 3.2 3B (optimizare raspunsuri)
 - [ ] Testare end-to-end: voce → AI → efect vizual
 
 ### Faza 5 — Film complet (Iulie-August 2026)
