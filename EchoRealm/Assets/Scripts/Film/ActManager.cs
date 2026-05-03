@@ -28,9 +28,13 @@ namespace EchoRealm.Film
         [SerializeField] private float introLinePause = 3f;
 
         [Header("Act 3 — Cooperative Challenge")]
-        [Tooltip("The obstacle GameObject that appears in Act 3.")]
+        [Tooltip("Default obstacle (used for 'cooperative' variant or when AI is unavailable).")]
         [SerializeField] private GameObject challengeObstacle;
-        [Tooltip("Cooperation events needed to solve the challenge.")]
+        [Tooltip("Obstacle for the 'chaotic' variant (voice-storm challenge).")]
+        [SerializeField] private GameObject obstacleChaoticVariant;
+        [Tooltip("Obstacle for the 'mysterious' variant (hidden glyphs/symbols challenge).")]
+        [SerializeField] private GameObject obstacleMysteriousVariant;
+        [Tooltip("Default cooperation events needed to solve the challenge.")]
         [SerializeField] private int cooperationGoal = 3;
 
         [Header("Act 4 — Origin Echo")]
@@ -41,6 +45,9 @@ namespace EchoRealm.Film
 
         /// <summary>Current act number (1-4), 0 if not started.</summary>
         public int CurrentAct { get; private set; }
+
+        /// <summary>The AI-chosen variant for the current act. Null if default/AI unavailable.</summary>
+        public AI.AINarrativeDecision CurrentDecision { get; private set; }
 
         /// <summary>Fired when an act completes.</summary>
         public event Action<int> OnActCompleted;
@@ -61,18 +68,26 @@ namespace EchoRealm.Film
         // Public API — called by FilmDirector
         // ------------------------------------------------------------------
 
-        public void StartAct(int actNumber)
+        /// <summary>
+        /// Start an act. <paramref name="decision"/> carries the AI-chosen variant and
+        /// Oracle narration line. Pass null to use act defaults (AI unavailable / Act 1-2).
+        /// </summary>
+        public void StartAct(int actNumber, AI.AINarrativeDecision decision)
         {
-            CurrentAct = actNumber;
-            Log($"=== ACT {actNumber} STARTED ===");
-            SessionLogger.Instance?.LogEvent(EventType.ActTransition, $"Act {actNumber} started");
+            CurrentAct    = actNumber;
+            CurrentDecision = decision;
+
+            string variant = decision?.chosen_variant ?? "default";
+            Log($"=== ACT {actNumber} STARTED (variant: {variant}) ===");
+            SessionLogger.Instance?.LogEvent(EventType.ActTransition,
+                $"Act {actNumber} started | variant={variant}");
 
             switch (actNumber)
             {
                 case 1: StartCoroutine(RunAct1()); break;
                 case 2: StartCoroutine(RunAct2()); break;
-                case 3: StartCoroutine(RunAct3()); break;
-                case 4: StartCoroutine(RunAct4()); break;
+                case 3: StartCoroutine(RunAct3(decision)); break;
+                case 4: StartCoroutine(RunAct4(decision)); break;
             }
         }
 
@@ -148,50 +163,53 @@ namespace EchoRealm.Film
         }
 
         // ------------------------------------------------------------------
-        // Act 3 — Cooperative Challenge
+        // Act 3 — Cooperative Challenge (AI-variant aware)
         // ------------------------------------------------------------------
 
-        private IEnumerator RunAct3()
+        private IEnumerator RunAct3(AI.AINarrativeDecision decision)
         {
-            // Oracle introduces the challenge
+            string variant     = decision?.chosen_variant ?? "cooperative";
+            string mood        = decision?.mood           ?? "warning";
+            string oracleLine  = decision?.oracle_narration ??
+                                 "An obstacle blocks your path. You must work together to overcome it.";
+
+            // Oracle delivers the AI-chosen transition narration
             var oracle = OracleController.Instance;
             if (oracle != null)
             {
-                oracle.SetMood("warning");
-                oracle.Speak("An obstacle blocks your path. You must work together to overcome it.");
+                oracle.SetMood(mood);
+                oracle.Speak(oracleLine);
                 yield return new WaitForSeconds(4f);
             }
 
-            // Show the obstacle
-            if (challengeObstacle != null)
-                challengeObstacle.SetActive(true);
+            // Activate the obstacle matching the chosen variant
+            GameObject activeObstacle = PickObstacleForVariant(variant);
+            if (activeObstacle != null)
+                activeObstacle.SetActive(true);
 
-            Log("Act 3 active — cooperative challenge. Waiting for cooperation events...");
+            Log($"Act 3 active — variant '{variant}'. Waiting for cooperation events...");
 
-            // Monitor cooperation events
+            // Monitor cooperation events (same win condition for all variants for now)
             var cooperation = Interaction.CooperationDetector.Instance;
             if (cooperation != null)
             {
                 while (cooperation.CooperationCount < cooperationGoal)
-                {
                     yield return new WaitForSeconds(1f);
-                }
             }
             else
             {
-                // No cooperation detector — wait a fixed time
                 yield return new WaitForSeconds(60f);
             }
 
-            // Challenge solved!
+            // Challenge solved
             if (oracle != null)
             {
                 oracle.SetMood("excited");
                 oracle.Speak("Together, you have found the way. The path is open!");
             }
 
-            if (challengeObstacle != null)
-                challengeObstacle.SetActive(false);
+            if (activeObstacle != null)
+                activeObstacle.SetActive(false);
 
             yield return new WaitForSeconds(3f);
 
@@ -199,25 +217,46 @@ namespace EchoRealm.Film
             OnActCompleted?.Invoke(3);
         }
 
+        /// <summary>Returns the correct obstacle prefab for the given variant key.</summary>
+        private GameObject PickObstacleForVariant(string variant)
+        {
+            switch (variant)
+            {
+                case "chaotic"    when obstacleChaoticVariant    != null: return obstacleChaoticVariant;
+                case "mysterious" when obstacleMysteriousVariant != null: return obstacleMysteriousVariant;
+                default: return challengeObstacle; // cooperative / default
+            }
+        }
+
         // ------------------------------------------------------------------
-        // Act 4 — The Origin Echo
+        // Act 4 — The Origin Echo (AI-variant aware)
         // ------------------------------------------------------------------
 
-        private IEnumerator RunAct4()
+        private IEnumerator RunAct4(AI.AINarrativeDecision decision)
         {
+            string mood       = decision?.mood            ?? "mysterious";
+            string oracleLine = decision?.oracle_narration ?? "";
+
             // Show portal
             if (portalEffect != null)
                 portalEffect.SetActive(true);
 
             yield return new WaitForSeconds(2f);
 
-            // Oracle delivers final monologue (generated by AI)
+            // Oracle delivers the AI-chosen transition line first, then the full monologue
             var oracle = OracleController.Instance;
             var narrative = NarrativeManager.Instance;
 
+            if (oracle != null && !string.IsNullOrEmpty(oracleLine))
+            {
+                oracle.SetMood(mood);
+                oracle.Speak(oracleLine);
+                yield return new WaitForSeconds(4f);
+            }
+
             if (oracle != null && narrative != null)
             {
-                oracle.SetMood("mysterious");
+                oracle.SetMood(mood);
 
                 // Start async monologue generation and wait for it in coroutine
                 var monologueTask = narrative.GenerateFinalMonologue();

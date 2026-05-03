@@ -236,6 +236,9 @@ namespace EchoRealm.AI
             LastRecognizedText = text;
             OnSpeechRecognized?.Invoke(text);
 
+            // Feed into behavior profile for AI scene-branching decisions
+            ActionCollector.Instance?.RecordVoiceCommand(text);
+
             if (aiManager == null || !aiManager.IsReachable)
             {
                 Debug.LogWarning("[Voice] No AI backend available. Cannot process voice command.");

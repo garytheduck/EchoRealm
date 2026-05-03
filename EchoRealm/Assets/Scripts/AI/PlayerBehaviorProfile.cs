@@ -1,0 +1,110 @@
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace EchoRealm.AI
+{
+    /// <summary>
+    /// Tracks how the players have interacted throughout a session across all modalities:
+    /// voice, gesture, gaze, and cooperation. Updated by ActionCollector.
+    ///
+    /// Used by NarrativeDecisionEngine to build the behavior summary sent to the AI
+    /// at each act transition, so the AI can choose the most fitting scene variant.
+    /// </summary>
+    public class PlayerBehaviorProfile
+    {
+        // ------------------------------------------------------------------
+        // Counters (updated by ActionCollector)
+        // ------------------------------------------------------------------
+
+        public int VoiceCommandCount  { get; private set; }
+        public int ManipulationCount  { get; private set; }
+        public int CooperationCount   { get; private set; }
+        public int GazeEventCount     { get; private set; }
+
+        private readonly HashSet<string> _interactedObjects = new HashSet<string>();
+
+        /// <summary>Number of distinct objects the players touched or gazed at.</summary>
+        public int UniqueObjectsInteracted => _interactedObjects.Count;
+
+        /// <summary>Total interactions across all modalities.</summary>
+        public int TotalInteractionCount =>
+            VoiceCommandCount + ManipulationCount + CooperationCount + GazeEventCount;
+
+        // ------------------------------------------------------------------
+        // Record methods
+        // ------------------------------------------------------------------
+
+        public void RecordVoice() => VoiceCommandCount++;
+
+        public void RecordManipulation(string objectName)
+        {
+            ManipulationCount++;
+            if (!string.IsNullOrEmpty(objectName))
+                _interactedObjects.Add(objectName);
+        }
+
+        public void RecordCooperation() => CooperationCount++;
+
+        public void RecordGaze(string objectName)
+        {
+            GazeEventCount++;
+            if (!string.IsNullOrEmpty(objectName))
+                _interactedObjects.Add(objectName);
+        }
+
+        // ------------------------------------------------------------------
+        // Derived properties
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// The single behavioral archetype that dominated this session.
+        /// Priority (when tied): Talker > Explorer > Cooperator > Observer.
+        ///
+        ///   Talker      — many voice commands relative to other inputs
+        ///   Explorer    — many grab/manipulation events, diverse object contact
+        ///   Cooperator  — many cooperation events between players
+        ///   Observer    — passive, few interactions of any kind
+        /// </summary>
+        public string DominantArchetype
+        {
+            get
+            {
+                if (TotalInteractionCount == 0) return "Observer";
+
+                int maxCount = Mathf.Max(VoiceCommandCount, ManipulationCount, CooperationCount);
+
+                if (maxCount == 0)               return "Observer";
+                if (maxCount == VoiceCommandCount) return "Talker";
+                if (maxCount == ManipulationCount) return "Explorer";
+                if (maxCount == CooperationCount)  return "Cooperator";
+                return "Observer";
+            }
+        }
+
+        /// <summary>
+        /// Builds a human-readable + AI-readable summary of player behavior.
+        /// Sent verbatim inside the AI scene-decision prompt.
+        /// </summary>
+        public string GetAISummary()
+        {
+            return
+                $"Dominant archetype: {DominantArchetype}. " +
+                $"Voice commands given: {VoiceCommandCount}. " +
+                $"Object manipulations (grabs/taps): {ManipulationCount}. " +
+                $"Cooperation events: {CooperationCount}. " +
+                $"Gaze interactions: {GazeEventCount}. " +
+                $"Unique objects touched or gazed at: {UniqueObjectsInteracted}. " +
+                $"Total interactions: {TotalInteractionCount}.";
+        }
+
+        /// <summary>Reset all counters (called between acts if needed).</summary>
+        public void Reset()
+        {
+            VoiceCommandCount  = 0;
+            ManipulationCount  = 0;
+            CooperationCount   = 0;
+            GazeEventCount     = 0;
+            _interactedObjects.Clear();
+        }
+    }
+}

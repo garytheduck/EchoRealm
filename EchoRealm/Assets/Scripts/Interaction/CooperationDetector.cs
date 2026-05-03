@@ -153,10 +153,13 @@ namespace EchoRealm.Interaction
 
             OnCooperationDetected?.Invoke(coopEvent);
 
-            // Report to NarrativeManager
+            // Report to NarrativeManager (session log / hint system)
             var narrative = AI.NarrativeManager.Instance;
             if (narrative != null)
                 narrative.RecordCooperation(coopEvent.description);
+
+            // Feed into behavior profile for AI scene-branching decisions
+            AI.ActionCollector.Instance?.RecordCooperation(coopEvent.description);
 
             // Reset to avoid double-counting
             lastPlayer1Action = null;

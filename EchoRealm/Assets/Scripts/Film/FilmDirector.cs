@@ -1,5 +1,6 @@
 using UnityEngine;
 using EchoRealm.AI;
+using System.Threading.Tasks;
 
 namespace EchoRealm.Film
 {
@@ -46,6 +47,11 @@ namespace EchoRealm.Film
 
         private float act2StartTime;
         private bool act2Active;
+
+        // The AI-chosen variants for acts 3 and 4, decided at the previous transition.
+        // Null until the decision is made; ActManager uses these when starting each act.
+        private AINarrativeDecision _act3Decision;
+        private AINarrativeDecision _act4Decision;
 
         private void Awake()
         {
@@ -154,51 +160,79 @@ namespace EchoRealm.Film
         // Act Transitions
         // ------------------------------------------------------------------
 
-        private void OnActCompleted(int completedAct)
+        private async void OnActCompleted(int completedAct)
         {
             Log($"Act {completedAct} completed.");
 
             // Update NarrativeManager
-            var narrative = NarrativeManager.Instance;
-            if (narrative != null)
-                narrative.AdvanceAct();
+            NarrativeManager.Instance?.AdvanceAct();
+
+            // Reset rolling action window so AI gets act-scoped context
+            ActionCollector.Instance?.ResetForNewAct();
 
             switch (completedAct)
             {
                 case 1:
-                    // Start Act 2
                     act2StartTime = Time.time;
-                    act2Active = true;
-                    actManager.StartAct(2);
+                    act2Active    = true;
+                    actManager.StartAct(2, null);
                     break;
 
                 case 2:
-                    // Start Act 3
-                    actManager.StartAct(3);
+                    // Ask AI which Act 3 to play based on player behavior so far.
+                    // Only the MASTER HoloLens makes this decision; the chosen variant key
+                    // must be broadcast to all peers so every device runs the same act.
+                    // TODO: add FusionNetworkManager.BroadcastActVariant(decision) here.
+                    _act3Decision = await RequestActDecision(fromAct: 2, toAct: 3);
+                    actManager.StartAct(3, _act3Decision);
                     break;
 
                 case 3:
-                    // Start Act 4
-                    actManager.StartAct(4);
+                    // Ask AI which Act 4 ending to play based on how Act 3 went.
+                    _act4Decision = await RequestActDecision(fromAct: 3, toAct: 4);
+                    actManager.StartAct(4, _act4Decision);
                     break;
 
                 case 4:
-                    // Film complete
                     EndFilm();
                     break;
             }
+        }
+
+        /// <summary>
+        /// Wrapper that calls NarrativeDecisionEngine and logs the result.
+        /// Returns null if the engine is not present (acts fall back to defaults internally).
+        /// </summary>
+        private async Task<AINarrativeDecision> RequestActDecision(int fromAct, int toAct)
+        {
+            var engine = NarrativeDecisionEngine.Instance;
+            if (engine == null)
+            {
+                Log($"NarrativeDecisionEngine not found. Act {toAct} will use defaults.", isWarning: true);
+                return null;
+            }
+
+            Log($"Requesting AI decision for Act {fromAct}→{toAct}...");
+            var decision = await engine.RequestDecisionAsync(fromAct, toAct);
+
+            Log($"Act {toAct} variant chosen: '{decision.chosen_variant}' | mood: '{decision.mood}'");
+            SessionLogger.Instance?.LogEvent(EventType.System,
+                $"Act{toAct} variant='{decision.chosen_variant}' reason='{decision.narrative_reason}'");
+
+            return decision;
+        }
+
+        private void Log(string message, bool isWarning = false)
+        {
+            if (!logEvents) return;
+            if (isWarning) Debug.LogWarning($"[FilmDirector] {message}");
+            else           Debug.Log($"[FilmDirector] {message}");
         }
 
         private void OnDestroy()
         {
             if (actManager != null)
                 actManager.OnActCompleted -= OnActCompleted;
-        }
-
-        private void Log(string message)
-        {
-            if (logEvents)
-                Debug.Log($"[FilmDirector] {message}");
         }
     }
 }

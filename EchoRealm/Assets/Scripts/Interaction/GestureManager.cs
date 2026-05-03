@@ -83,6 +83,9 @@ namespace EchoRealm.Interaction
 
             // Report to cooperation detector
             ReportGesture(gameObject, InteractionType.Grab);
+
+            // Feed into behavior profile for AI narrative decisions
+            AI.ActionCollector.Instance?.RecordGesture(InteractionType.Grab, gameObject.name);
         }
 
         /// <summary>
@@ -102,6 +105,9 @@ namespace EchoRealm.Interaction
         {
             Log($"Air Tap on: {gameObject.name}");
             ReportGesture(gameObject, InteractionType.AirTap);
+
+            // Feed into behavior profile for AI narrative decisions
+            AI.ActionCollector.Instance?.RecordGesture(InteractionType.AirTap, gameObject.name);
         }
 
         // ------------------------------------------------------------------
