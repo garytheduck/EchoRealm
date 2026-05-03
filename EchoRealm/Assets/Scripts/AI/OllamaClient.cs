@@ -17,8 +17,8 @@ namespace EchoRealm.AI
     public class OllamaClient : MonoBehaviour
     {
         [Header("Ollama Server")]
-        [Tooltip("Base URL of the Ollama server. Default: http://localhost:11434")]
-        [SerializeField] private string serverUrl = "http://127.0.0.1:11500";
+        [Tooltip("Base URL of the Ollama server. On HoloLens, must be the PC's LAN IP (NOT 127.0.0.1). Default points to dev PC: http://10.22.13.159:11500")]
+        [SerializeField] private string serverUrl = "http://10.22.13.159:11500";
 
         [Tooltip("Model to use for generation.")]
         [SerializeField] private string modelName = "llama3.2:3b";

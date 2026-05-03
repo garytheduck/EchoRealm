@@ -22,7 +22,7 @@ namespace EchoRealm.AI
     public class VoiceCommandProcessor : MonoBehaviour
     {
         [Header("References")]
-        [SerializeField] private OllamaClient ollamaClient;
+        [SerializeField] private AIManager aiManager;
         [SerializeField] private CommandExecutor commandExecutor;
 
         [Header("Voice Settings")]
@@ -65,8 +65,8 @@ namespace EchoRealm.AI
 
         private async void Start()
         {
-            if (ollamaClient == null)
-                ollamaClient = FindObjectOfType<OllamaClient>();
+            if (aiManager == null)
+                aiManager = FindObjectOfType<AIManager>();
             if (commandExecutor == null)
                 commandExecutor = FindObjectOfType<CommandExecutor>();
 
@@ -229,22 +229,22 @@ namespace EchoRealm.AI
         // ------------------------------------------------------------------
 
         /// <summary>
-        /// Core pipeline: speech text → Ollama AI → execute commands.
+        /// Core pipeline: speech text → AI backend → execute commands.
         /// </summary>
         private async System.Threading.Tasks.Task ProcessSpeechText(string text)
         {
             LastRecognizedText = text;
             OnSpeechRecognized?.Invoke(text);
 
-            if (ollamaClient == null || !ollamaClient.IsServerReachable)
+            if (aiManager == null || !aiManager.IsReachable)
             {
-                Debug.LogWarning("[Voice] Ollama not available. Cannot process voice command.");
+                Debug.LogWarning("[Voice] No AI backend available. Cannot process voice command.");
                 return;
             }
 
-            if (ollamaClient.IsBusy)
+            if (aiManager.IsBusy)
             {
-                Log("Ollama is busy processing another request. Skipping.");
+                Log("AI backend is busy processing another request. Skipping.");
                 return;
             }
 
@@ -252,10 +252,10 @@ namespace EchoRealm.AI
             string sceneState = commandExecutor != null ? commandExecutor.GetSceneStateDescription() : "unknown";
             string[] availableCommands = commandExecutor != null ? commandExecutor.GetAvailableCommands() : new string[0];
 
-            Log($"Sending to AI: speech='{text}', scene='{sceneState}'");
+            Log($"Sending to AI ({aiManager.ActiveBackendName}): speech='{text}', scene='{sceneState}'");
 
-            // Send to Ollama for AI interpretation
-            var response = await ollamaClient.SendCommandRequestAsync(text, sceneState, availableCommands);
+            // Send to AI backend for interpretation
+            var response = await aiManager.SendCommandRequestAsync(text, sceneState, availableCommands);
 
             if (response != null)
             {

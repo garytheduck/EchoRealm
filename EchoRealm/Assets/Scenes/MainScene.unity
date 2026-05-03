@@ -218,6 +218,7 @@ MonoBehaviour:
   commandExecutor: {fileID: 1647323526}
   statusText: {fileID: 0}
   autoStartFilm: 1
+  qrTimeoutSeconds: 8
 --- !u!4 &126231479
 Transform:
   m_ObjectHideFlags: 0
@@ -1040,8 +1041,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 122f66333a9778b499c150572f8d9c87, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  serverUrl: http://localhost:11434
-  modelName: llama3.1:8b
+  serverUrl: http://10.22.13.159:11500
+  modelName: llama3.2:3b
   timeoutSeconds: 30
   temperature: 0.7
   logRequests: 1

@@ -690,7 +690,7 @@ PlayerSettings:
   m_RenderingPath: 1
   m_MobileRenderingPath: 1
   metroPackageName: EchoRealm
-  metroPackageVersion: 
+  metroPackageVersion: 1.0.0.0
   metroCertificatePath: Assets/WSATestCertificate.pfx
   metroCertificatePassword: 
   metroCertificateSubject: DefaultCompany
@@ -698,7 +698,7 @@ PlayerSettings:
   metroCertificateNotAfter: 0073b16c3ceedd01
   metroApplicationDescription: EchoRealm
   wsaImages: {}
-  metroTileShortName: 
+  metroTileShortName: EchoRealm
   metroTileShowName: 0
   metroMediumTileShowName: 0
   metroLargeTileShowName: 0

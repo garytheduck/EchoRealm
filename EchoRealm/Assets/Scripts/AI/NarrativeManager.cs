@@ -18,7 +18,7 @@ namespace EchoRealm.AI
     public class NarrativeManager : MonoBehaviour
     {
         [Header("References")]
-        [SerializeField] private OllamaClient ollamaClient;
+        [SerializeField] private AIManager aiManager;
         [SerializeField] private CommandExecutor commandExecutor;
 
         [Header("Hint System")]
@@ -72,8 +72,8 @@ namespace EchoRealm.AI
             SessionStartTime = Time.time;
             lastInteractionTime = Time.time;
 
-            if (ollamaClient == null)
-                ollamaClient = FindObjectOfType<OllamaClient>();
+            if (aiManager == null)
+                aiManager = FindObjectOfType<AIManager>();
             if (commandExecutor == null)
                 commandExecutor = FindObjectOfType<CommandExecutor>();
 
@@ -154,9 +154,9 @@ namespace EchoRealm.AI
         /// </summary>
         public async Task<string> GenerateFinalMonologue()
         {
-            if (ollamaClient == null || !ollamaClient.IsServerReachable)
+            if (aiManager == null || !aiManager.IsReachable)
             {
-                Log("Ollama not available for final monologue.", isWarning: true);
+                Log("No AI backend available for final monologue.", isWarning: true);
                 return GetFallbackMonologue();
             }
 
@@ -173,8 +173,8 @@ namespace EchoRealm.AI
                 "3. Ends with a poetic farewell as the astronaut steps through the portal. " +
                 "Return ONLY the monologue text, no JSON, no quotes.";
 
-            Log("Generating final Oracle monologue...");
-            string monologue = await ollamaClient.SendPromptAsync(prompt);
+            Log($"Generating final Oracle monologue via {aiManager.ActiveBackendName}...");
+            string monologue = await aiManager.SendPromptAsync(prompt);
 
             if (string.IsNullOrEmpty(monologue))
             {
@@ -196,7 +196,7 @@ namespace EchoRealm.AI
 
         private async void GenerateHint()
         {
-            if (ollamaClient == null || !ollamaClient.IsServerReachable || ollamaClient.IsBusy)
+            if (aiManager == null || !aiManager.IsReachable || aiManager.IsBusy)
                 return;
 
             string sceneState = commandExecutor != null ? commandExecutor.GetSceneStateDescription() : "unknown";
@@ -210,8 +210,8 @@ namespace EchoRealm.AI
                 "Be poetic and in character as the Oracle. " +
                 "Return ONLY the hint text.";
 
-            Log("Generating hint for stuck players...");
-            string hint = await ollamaClient.SendPromptAsync(prompt);
+            Log($"Generating hint via {aiManager.ActiveBackendName}...");
+            string hint = await aiManager.SendPromptAsync(prompt);
 
             if (!string.IsNullOrEmpty(hint))
             {

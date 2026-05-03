@@ -16,9 +16,9 @@ MonoBehaviour:
     AppIdFusion: c30ec5a6-0dc2-4fa7-8392-5a1acd72e0ef
     AppIdChat: 
     AppIdVoice: 
-    AppVersion: 
+    AppVersion: 1.0
     UseNameServer: 1
-    FixedRegion: 
+    FixedRegion: eu
     Server: 
     Port: 0
     ProxyServer: 
