@@ -191,6 +191,8 @@ GameObject:
   - component: {fileID: 126231478}
   - component: {fileID: 126231481}
   - component: {fileID: 126231480}
+  - component: {fileID: 126231482}
+  - component: {fileID: 126231483}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -212,13 +214,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   qrAnchorManager: {fileID: 1434415802}
   fusionNetworkManager: {fileID: 0}
-  ollamaClient: {fileID: 912267762}
+  aiManager: {fileID: 126231482}
   voiceProcessor: {fileID: 1707791709}
   narrativeManager: {fileID: 1528257428}
   commandExecutor: {fileID: 1647323526}
   statusText: {fileID: 0}
   autoStartFilm: 1
   qrTimeoutSeconds: 8
+  requireQR: 0
 --- !u!4 &126231479
 Transform:
   m_ObjectHideFlags: 0
@@ -253,6 +256,8 @@ MonoBehaviour:
   - Speak... and the world will answer.
   introLinePause: 3
   challengeObstacle: {fileID: 0}
+  obstacleChaoticVariant: {fileID: 0}
+  obstacleMysteriousVariant: {fileID: 0}
   cooperationGoal: 3
   portalEffect: {fileID: 0}
   logEvents: 1
@@ -273,6 +278,41 @@ MonoBehaviour:
   act2MaxDuration: 180
   endScreen: {fileID: 0}
   logEvents: 1
+--- !u!114 &126231482
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 126231477}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0f1a169ec9d5e2144b1b2713a160ebd5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  mode: 0
+  ollamaClient: {fileID: 912267762}
+  claudeBackend: {fileID: 126231483}
+  logFallback: 1
+--- !u!114 &126231483
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 126231477}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e69fe172e2a7f6e44af0836a3500060a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  apiKey: 
+  modelName: claude-haiku-4-5
+  maxTokens: 512
+  timeoutSeconds: 15
+  temperature: 0.3
+  logRequests: 1
+  logResponses: 1
 --- !u!1 &419660345
 GameObject:
   m_ObjectHideFlags: 0
@@ -283,7 +323,7 @@ GameObject:
   m_Component:
   - component: {fileID: 419660348}
   - component: {fileID: 419660347}
-  - component: {fileID: 419660346}
+  - component: {fileID: 419660349}
   m_Layer: 0
   m_Name: EventSystem
   m_TagString: Untagged
@@ -291,26 +331,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &419660346
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 419660345}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4f231c4fb786f3946a6b90b886c48677, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_SendPointerHoverToParent: 1
-  m_HorizontalAxis: Horizontal
-  m_VerticalAxis: Vertical
-  m_SubmitButton: Submit
-  m_CancelButton: Cancel
-  m_InputActionsPerSecond: 10
-  m_RepeatDelay: 0.5
-  m_ForceModuleActive: 0
 --- !u!114 &419660347
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -341,6 +361,46 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &419660349
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 419660345}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ab68ce6587aab0146b8dabefbd806791, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_SendPointerHoverToParent: 1
+  m_ClickSpeed: 0.3
+  m_MoveDeadzone: 0.6
+  m_RepeatDelay: 0.5
+  m_RepeatRate: 0.1
+  m_TrackedDeviceDragThresholdMultiplier: 1.4
+  m_TrackedScrollDeltaMultiplier: 5
+  m_BypassUIToolkitEvents: 0
+  m_ActiveInputMode: 0
+  m_MaxTrackedDeviceRaycastDistance: 1000
+  m_EnableXRInput: 1
+  m_EnableMouseInput: 1
+  m_EnableTouchInput: 1
+  m_PointAction: {fileID: 0}
+  m_LeftClickAction: {fileID: 0}
+  m_MiddleClickAction: {fileID: 0}
+  m_RightClickAction: {fileID: 0}
+  m_ScrollWheelAction: {fileID: 0}
+  m_NavigateAction: {fileID: 0}
+  m_SubmitAction: {fileID: 0}
+  m_CancelAction: {fileID: 0}
+  m_EnableBuiltinActionsAsFallback: 1
+  m_EnableGamepadInput: 1
+  m_EnableJoystickInput: 1
+  m_HorizontalAxis: Horizontal
+  m_VerticalAxis: Vertical
+  m_SubmitButton: Submit
+  m_CancelButton: Cancel
 --- !u!1 &534812532
 GameObject:
   m_ObjectHideFlags: 0
@@ -1005,12 +1065,12 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 841888582}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 0}
+  m_Father: {fileID: 923872860}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &912267761
 GameObject:
@@ -1092,6 +1152,8 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1671376701}
+  - {fileID: 841888584}
+  - {fileID: 1772621088}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1434415801
@@ -1277,7 +1339,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 72b686db97cfbd549811220ec1bd14b7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  ollamaClient: {fileID: 0}
+  aiManager: {fileID: 126231482}
   commandExecutor: {fileID: 0}
   hintDelaySeconds: 30
   logEvents: 1
@@ -1307,8 +1369,8 @@ GameObject:
   - component: {fileID: 1547894478}
   - component: {fileID: 1547894477}
   - component: {fileID: 1547894476}
-  - component: {fileID: 1547894475}
   - component: {fileID: 1547894474}
+  - component: {fileID: 1547894479}
   m_Layer: 5
   m_Name: Canvas
   m_TagString: Untagged
@@ -1333,23 +1395,6 @@ MonoBehaviour:
   spawnButton: {fileID: 1553094969}
   randomizeButton: {fileID: 1661198348}
   despawnButton: {fileID: 597352476}
---- !u!114 &1547894475
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1547894473}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dc42784cf147c0c48a680349fa168899, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_IgnoreReversedGraphics: 1
-  m_BlockingObjects: 0
-  m_BlockingMask:
-    serializedVersion: 2
-    m_Bits: 4294967295
 --- !u!114 &1547894476
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1403,7 +1448,7 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1547894473}
-  m_LocalRotation: {x: 0, y: 1, z: 0, w: 0}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 1}
   m_LocalScale: {x: 0.001, y: 0.001, z: 0.001}
   m_ConstrainProportionsScale: 0
@@ -1413,12 +1458,31 @@ RectTransform:
   - {fileID: 1661198351}
   - {fileID: 597352479}
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 180, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: 0, y: 1.5}
   m_SizeDelta: {x: 400, y: 300}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &1547894479
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1547894473}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7951c64acb0fa62458bf30a60089fe2d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_IgnoreReversedGraphics: 0
+  m_CheckFor2DOcclusion: 0
+  m_CheckFor3DOcclusion: 0
+  m_BlockingMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_RaycastTriggerInteraction: 1
 --- !u!1 &1553094968
 GameObject:
   m_ObjectHideFlags: 0
@@ -1846,7 +1910,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1c782d7d36aece64cbc8f9281160e408, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  ollamaClient: {fileID: 0}
+  aiManager: {fileID: 126231482}
   commandExecutor: {fileID: 0}
   confidenceThreshold: 0.5
   continuousListening: 1
@@ -2046,12 +2110,12 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1772621086}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 0}
+  m_Father: {fileID: 923872860}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1978978733
 GameObject:
@@ -2175,8 +2239,6 @@ SceneRoots:
   - {fileID: 923872860}
   - {fileID: 2102049669}
   - {fileID: 29821783}
-  - {fileID: 841888584}
-  - {fileID: 1772621088}
   - {fileID: 1518294832}
   - {fileID: 1434805927}
   - {fileID: 1657382442}
