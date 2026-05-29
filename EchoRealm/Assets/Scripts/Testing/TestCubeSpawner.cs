@@ -94,16 +94,20 @@ namespace EchoRealm.Testing
                 spawnedCube = null;
             }
 
-            Vector3 worldPos = anchorTransform != null
-                ? anchorTransform.TransformPoint(spawnOffset)
-                : spawnOffset;
+            // Spawn at origin; the cube also parents itself under SceneRoot in Spawned() on
+            // every device (needed on clients). As the state authority we parent here under
+            // anchorTransform and set the anchor-relative offset — Fusion's local-space
+            // NetworkTransform then syncs that local pose to all clients.
+            spawnedCube = network.Runner.Spawn(cubePrefab, Vector3.zero, Quaternion.identity, network.Runner.LocalPlayer);
 
-            Quaternion rot = anchorTransform != null
-                ? anchorTransform.rotation
-                : Quaternion.identity;
-
-            spawnedCube = network.Runner.Spawn(cubePrefab, worldPos, rot, network.Runner.LocalPlayer);
-            Log($"Spawned cube at {worldPos} (anchor: {(anchorTransform != null ? anchorTransform.name : "world origin")})");
+            if (spawnedCube != null)
+            {
+                if (anchorTransform != null)
+                    spawnedCube.transform.SetParent(anchorTransform, worldPositionStays: false);
+                spawnedCube.transform.localPosition = spawnOffset;
+                spawnedCube.transform.localRotation = Quaternion.identity;
+                Log($"Spawned cube at SceneRoot-local offset {spawnOffset}");
+            }
         }
 
         /// <summary>
