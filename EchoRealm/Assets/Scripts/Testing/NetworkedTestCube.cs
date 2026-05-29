@@ -32,6 +32,20 @@ namespace EchoRealm.Testing
         {
             Log($"Cube spawned. HasStateAuthority={HasStateAuthority}, InputAuthority={Object.InputAuthority}");
 
+            // CO-LOCATION: parent under the local SceneRoot (aligned to the shared QR code).
+            // Fusion 2's NetworkTransform syncs LOCAL space, so the synced pose becomes
+            // anchor-relative and lands at the same physical spot on every headset.
+            var anchor = EchoRealm.Networking.QRAnchorManager.Instance;
+            if (anchor != null && anchor.SceneRoot != null)
+            {
+                transform.SetParent(anchor.SceneRoot, worldPositionStays: false);
+                Log($"Parented under SceneRoot '{anchor.SceneRoot.name}'. localPos={transform.localPosition}");
+            }
+            else
+            {
+                Log("QRAnchorManager/SceneRoot not found — cube stays in world space (NOT co-located).");
+            }
+
             // Tint differently on master vs. client so you can visually tell
             // which machine is the "authoritative" spawner at a glance.
             if (cubeRenderer != null)
@@ -82,8 +96,8 @@ namespace EchoRealm.Testing
                 Random.Range(0f, 0.3f),
                 Random.Range(-0.3f, 0.3f)
             );
-            transform.position += offset;
-            Log($"Randomized position to {transform.position}");
+            transform.localPosition += offset; // local space keeps it anchor-relative
+            Log($"Randomized local position to {transform.localPosition}");
         }
 
         private void Log(string msg)
