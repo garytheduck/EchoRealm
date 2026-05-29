@@ -72,6 +72,7 @@ namespace EchoRealm.Networking
                 return;
             }
 
+            Log("Creating NetworkRunner component...");
             Runner = gameObject.AddComponent<NetworkRunner>();
             Runner.ProvideInput = false; // Shared Mode does not use input authority
 
@@ -83,18 +84,64 @@ namespace EchoRealm.Networking
                 SceneManager = gameObject.AddComponent<NetworkSceneManagerDefault>()
             };
 
-            Log($"Starting Fusion session '{sessionName}' (Shared Mode, max {maxPlayers} players)...");
+            // Surface the Photon config so we can confirm AppId/region are loaded.
+            LogPhotonConfig();
 
-            var result = await Runner.StartGame(startArgs);
+            Log($"Calling StartGame → GameMode.Shared, session='{sessionName}', maxPlayers={maxPlayers}. " +
+                "If this is the last Fusion log you see, StartGame is HANGING (check internet / firewall / AppId).");
+
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            StartGameResult result;
+            try
+            {
+                result = await Runner.StartGame(startArgs);
+            }
+            catch (Exception ex)
+            {
+                stopwatch.Stop();
+                Log($"StartGame THREW after {stopwatch.ElapsedMilliseconds}ms: {ex.GetType().Name}: {ex.Message}", isError: true);
+                return;
+            }
+            stopwatch.Stop();
 
             if (result.Ok)
             {
-                Log($"Session started! Master: {IsMaster}");
+                int playerCount = Runner.SessionInfo != null ? Runner.SessionInfo.PlayerCount : -1;
+                Log($"✓ SESSION STARTED in {stopwatch.ElapsedMilliseconds}ms | " +
+                    $"LocalPlayer={Runner.LocalPlayer} | IsMaster={IsMaster} | " +
+                    $"PlayersInSession={playerCount} | Region={(Runner.SessionInfo != null ? Runner.SessionInfo.Region : "?")}");
                 OnSessionJoined?.Invoke();
             }
             else
             {
-                Log($"Failed to start session: {result.ShutdownReason}", isError: true);
+                Log($"✗ START GAME FAILED after {stopwatch.ElapsedMilliseconds}ms | " +
+                    $"ShutdownReason={result.ShutdownReason} | ErrorMessage={result.ErrorMessage}", isError: true);
+            }
+        }
+
+        /// <summary>Logs the loaded Photon AppSettings so we can confirm AppId/region at runtime.</summary>
+        private void LogPhotonConfig()
+        {
+            try
+            {
+                var settings = Fusion.Photon.Realtime.PhotonAppSettings.Global?.AppSettings;
+                if (settings == null)
+                {
+                    Log("Photon AppSettings is NULL — PhotonAppSettings.asset not configured!", isError: true);
+                    return;
+                }
+
+                string appId = settings.AppIdFusion;
+                string maskedId = string.IsNullOrEmpty(appId)
+                    ? "<EMPTY — Fusion will fail to connect!>"
+                    : (appId.Length > 8 ? appId.Substring(0, 8) + "…" : appId);
+
+                Log($"Photon config → AppIdFusion={maskedId} | FixedRegion='{settings.FixedRegion}' | " +
+                    $"UseNameServer={settings.UseNameServer}");
+            }
+            catch (Exception ex)
+            {
+                Log($"Could not read Photon AppSettings: {ex.Message}", isError: true);
             }
         }
 
@@ -116,13 +163,16 @@ namespace EchoRealm.Networking
 
         public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
         {
-            Log($"Player joined: {player}");
+            int count = runner.SessionInfo != null ? runner.SessionInfo.PlayerCount : -1;
+            bool isLocal = player == runner.LocalPlayer;
+            Log($"Player JOINED: {player}{(isLocal ? " (THIS DEVICE)" : " (remote peer)")} | Total players now: {count}");
             OnPlayerJoinedSession?.Invoke(player);
         }
 
         public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
         {
-            Log($"Player left: {player}");
+            int count = runner.SessionInfo != null ? runner.SessionInfo.PlayerCount : -1;
+            Log($"Player LEFT: {player} | Total players now: {count}");
             OnPlayerLeftSession?.Invoke(player);
         }
 
@@ -139,12 +189,16 @@ namespace EchoRealm.Networking
             OnDisconnected?.Invoke();
         }
 
+        public void OnConnectedToServer(NetworkRunner runner)
+        {
+            Log($"Connected to Photon relay server. LocalPlayer={runner.LocalPlayer}");
+        }
+
         // --- Required but unused callbacks (Shared Mode) ---
-        public void OnConnectedToServer(NetworkRunner runner) { }
         public void OnConnectRequest(NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token) { }
         public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason)
         {
-            Log($"Connect failed: {reason}", isError: true);
+            Log($"CONNECT FAILED to {remoteAddress}: {reason}", isError: true);
         }
         public void OnInput(NetworkRunner runner, NetworkInput input) { }
         public void OnInputMissing(NetworkRunner runner, PlayerRef player, NetworkInput input) { }
