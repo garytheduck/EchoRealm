@@ -35,6 +35,10 @@ namespace EchoRealm.Film
         [Tooltip("If QR code isn't detected after this many seconds, skip QR anchoring and continue with default origin.")]
         [SerializeField] private float qrTimeoutSeconds = 8f;
 
+        [Tooltip("If true, the app will NOT proceed until a QR code is scanned (required for multi-device co-location). " +
+                 "If false, it skips QR after the timeout and runs un-anchored (solo/dev testing).")]
+        [SerializeField] private bool requireQR = false;
+
         private bool qrAnchorHandled = false;
 
         private enum BootState
@@ -78,12 +82,19 @@ namespace EchoRealm.Film
         private System.Collections.IEnumerator QRTimeoutFallback()
         {
             yield return new WaitForSeconds(qrTimeoutSeconds);
-            if (!qrAnchorHandled)
+            if (qrAnchorHandled) yield break;
+
+            if (requireQR)
             {
-                Debug.LogWarning($"[Boot] QR code not detected after {qrTimeoutSeconds}s. Skipping QR anchoring and continuing with default origin.");
-                SetStatus("No QR code detected.\nContinuing without spatial anchor...");
-                OnQRAnchorEstablished();
+                // Multi-device co-located session: do NOT proceed un-anchored.
+                Debug.LogWarning($"[Boot] QR not detected after {qrTimeoutSeconds}s. requireQR=true → still waiting for the shared QR anchor.");
+                SetStatus("Still scanning for QR code...\nCo-location needs the shared QR anchor.\nLook at the EchoRealm-Anchor code.");
+                yield break; // a real QR detection will fire OnQRAnchorEstablished and continue boot
             }
+
+            Debug.LogWarning($"[Boot] QR code not detected after {qrTimeoutSeconds}s. requireQR=false → continuing un-anchored (NOT co-located).");
+            SetStatus("No QR code detected.\nContinuing without spatial anchor...");
+            OnQRAnchorEstablished();
         }
 
         private async void OnQRAnchorEstablished()
