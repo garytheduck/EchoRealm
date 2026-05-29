@@ -46,9 +46,20 @@ namespace EchoRealm.Networking
         /// <summary>Fired when the QR anchor is successfully established.</summary>
         public event System.Action OnAnchorEstablished;
 
+        /// <summary>Singleton access so networked objects can find the anchor to parent under.</summary>
+        public static QRAnchorManager Instance { get; private set; }
+
+        /// <summary>The shared anchor transform. All co-located content must be a child of this.</summary>
+        public Transform SceneRoot => sceneRoot;
+
 #if WINDOWS_UWP
         private ARMarkerManager markerManager;
 #endif
+
+        private void Awake()
+        {
+            Instance = this;
+        }
 
         private void Start()
         {
