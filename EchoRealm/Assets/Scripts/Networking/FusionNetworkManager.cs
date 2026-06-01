@@ -18,6 +18,10 @@ namespace EchoRealm.Networking
         [SerializeField] private string sessionName = "EchoRealm";
         [SerializeField] private int maxPlayers = 4;
 
+        [Header("Shared Film")]
+        [Tooltip("Prefab with NetworkObject + FilmSync. The master spawns it once per session.")]
+        [SerializeField] private NetworkObject filmSyncPrefab;
+
         [Header("Debug")]
         [SerializeField] private bool logEvents = true;
 
@@ -110,6 +114,18 @@ namespace EchoRealm.Networking
                 Log($"✓ SESSION STARTED in {stopwatch.ElapsedMilliseconds}ms | " +
                     $"LocalPlayer={Runner.LocalPlayer} | IsMaster={IsMaster} | " +
                     $"PlayersInSession={playerCount} | Region={(Runner.SessionInfo != null ? Runner.SessionInfo.Region : "?")}");
+
+                // The master spawns the shared-film state object; clients receive it by replication.
+                if (IsMaster && filmSyncPrefab != null)
+                {
+                    Runner.Spawn(filmSyncPrefab);
+                    Log("Spawned FilmSync (master is the film authority).");
+                }
+                else if (filmSyncPrefab == null)
+                {
+                    Log("filmSyncPrefab not assigned — film will run un-networked (per-device).", isError: true);
+                }
+
                 OnSessionJoined?.Invoke();
             }
             else
