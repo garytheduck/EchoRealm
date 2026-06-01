@@ -205,7 +205,10 @@ namespace EchoRealm.AI
         /// </summary>
         private static bool CanUse(IAIBackend backend)
         {
-            return backend != null && !backend.IsBusy;
+            // Don't skip a backend just because it's mid-request — Claude handles
+            // concurrent calls. We only fall back to the secondary on an actual
+            // failure (null/empty result), not on transient busyness.
+            return backend != null;
         }
 
         private bool UsesOllama() =>

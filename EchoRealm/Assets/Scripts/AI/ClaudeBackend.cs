@@ -53,7 +53,12 @@ namespace EchoRealm.AI
         public bool IsReachable { get; private set; }
 
         /// <inheritdoc/>
-        public bool IsBusy { get; private set; }
+        public bool IsBusy => _inFlight > 0;
+
+        // Number of requests currently in flight. Claude handles concurrent calls,
+        // so we count rather than single-flight-gate (lets a voice command and an
+        // act-transition decision overlap instead of one knocking the other to fallback).
+        private int _inFlight;
 
         private const string ApiUrl = "https://api.anthropic.com/v1/messages";
         private const string AnthropicVersion = "2023-06-01";
@@ -103,13 +108,8 @@ namespace EchoRealm.AI
         public async Task<string> SendPromptAsync(string prompt)
         {
             if (!IsKeyConfigured()) return null;
-            if (IsBusy)
-            {
-                Debug.LogWarning("[Claude] Request already in progress. Ignoring.");
-                return null;
-            }
 
-            IsBusy = true;
+            _inFlight++; // allow concurrent requests; each is an independent HTTP call
             try
             {
                 if (logRequests)
@@ -129,7 +129,7 @@ namespace EchoRealm.AI
             }
             finally
             {
-                IsBusy = false;
+                _inFlight--;
             }
         }
 
