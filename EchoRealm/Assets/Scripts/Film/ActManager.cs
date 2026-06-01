@@ -72,7 +72,7 @@ namespace EchoRealm.Film
         /// Start an act. <paramref name="decision"/> carries the AI-chosen variant and
         /// Oracle narration line. Pass null to use act defaults (AI unavailable / Act 1-2).
         /// </summary>
-        public void StartAct(int actNumber, AI.AINarrativeDecision decision)
+        public void StartAct(int actNumber, AI.AINarrativeDecision decision = null)
         {
             CurrentAct    = actNumber;
             CurrentDecision = decision;
