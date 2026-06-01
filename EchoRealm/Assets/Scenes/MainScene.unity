@@ -194,6 +194,8 @@ GameObject:
   - component: {fileID: 126231482}
   - component: {fileID: 126231483}
   - component: {fileID: 126231484}
+  - component: {fileID: 126231486}
+  - component: {fileID: 126231485}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -291,7 +293,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0f1a169ec9d5e2144b1b2713a160ebd5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  mode: 0
+  mode: 2
   ollamaClient: {fileID: 912267762}
   claudeBackend: {fileID: 126231483}
   logFallback: 1
@@ -331,6 +333,34 @@ MonoBehaviour:
   worldScale: 0.005
   fontSize: 36
   textColor: {r: 1, g: 1, b: 1, a: 1}
+--- !u!114 &126231485
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 126231477}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dd513afdf899a774d9b18a8dc0d14b5b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  variantSets: []
+  logDecisions: 1
+--- !u!114 &126231486
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 126231477}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 03a922e2f7f603642bdd38b7ed88e8ef, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  maxRecentActions: 20
+  logActions: 0
 --- !u!1 &419660345
 GameObject:
   m_ObjectHideFlags: 0
@@ -1119,7 +1149,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 122f66333a9778b499c150572f8d9c87, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  serverUrl: http://10.22.13.159:11500
+  serverUrl: http://localhost:11500
   modelName: llama3.2:3b
   timeoutSeconds: 30
   temperature: 0.7
