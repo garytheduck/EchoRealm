@@ -53,6 +53,20 @@ namespace EchoRealm.Film
         private AINarrativeDecision _act3Decision;
         private AINarrativeDecision _act4Decision;
 
+        /// <summary>True if this device drives the film (the Photon master, or solo/editor with no Fusion master).</summary>
+        private bool IsMaster =>
+            EchoRealm.Networking.FusionNetworkManager.Instance == null ||
+            EchoRealm.Networking.FusionNetworkManager.Instance.IsMaster;
+
+        /// <summary>Start an act through FilmSync (networked) when available, else locally (solo/editor).</summary>
+        private void GoToAct(int act, AINarrativeDecision decision)
+        {
+            if (EchoRealm.Networking.FilmSync.Instance != null)
+                EchoRealm.Networking.FilmSync.Instance.DriveAct(act, decision);
+            else if (actManager != null)
+                actManager.StartAct(act, decision);
+        }
+
         private void Awake()
         {
             if (Instance != null && Instance != this)
@@ -74,15 +88,17 @@ namespace EchoRealm.Film
 
         private void Update()
         {
-            // Monitor Act 2 completion criteria
+            if (!IsMaster) return; // only the master advances the film
+
+            // Monitor Act 2 completion criteria using the COMBINED behavior profile
+            // (the master pools every headset's voice commands into ActionCollector).
             if (act2Active)
             {
                 bool timeUp = Time.time - act2StartTime >= act2MaxDuration;
-                bool enoughCommands = false;
-
-                var narrative = NarrativeManager.Instance;
-                if (narrative != null)
-                    enoughCommands = narrative.VoiceCommandLog.Count >= minVoiceCommands;
+                int voiceCount = AI.ActionCollector.Instance != null
+                    ? AI.ActionCollector.Instance.Profile.VoiceCommandCount
+                    : 0;
+                bool enoughCommands = voiceCount >= minVoiceCommands;
 
                 if (timeUp || enoughCommands)
                 {
@@ -105,6 +121,11 @@ namespace EchoRealm.Film
         public void StartFilm()
         {
             if (IsPlaying) return;
+            if (!IsMaster)
+            {
+                Log("Not master — the master drives the film via FilmSync. Skipping local StartFilm.");
+                return;
+            }
 
             IsPlaying = true;
             IsFinished = false;
@@ -112,7 +133,7 @@ namespace EchoRealm.Film
 
             SessionLogger.Instance?.LogEvent(EventType.System, "Film started");
 
-            actManager.StartAct(1);
+            GoToAct(1, null);
         }
 
         /// <summary>
@@ -123,7 +144,7 @@ namespace EchoRealm.Film
             if (actNumber < 1 || actNumber > 4) return;
             Log($"Skipping to Act {actNumber}");
             act2Active = false;
-            actManager.StartAct(actNumber);
+            GoToAct(actNumber, null);
         }
 
         /// <summary>
@@ -162,6 +183,8 @@ namespace EchoRealm.Film
 
         private async void OnActCompleted(int completedAct)
         {
+            if (!IsMaster) return; // clients replay acts but never drive transitions
+
             Log($"Act {completedAct} completed.");
 
             // Update NarrativeManager
@@ -175,22 +198,20 @@ namespace EchoRealm.Film
                 case 1:
                     act2StartTime = Time.time;
                     act2Active    = true;
-                    actManager.StartAct(2, null);
+                    GoToAct(2, null);
                     break;
 
                 case 2:
-                    // Ask AI which Act 3 to play based on player behavior so far.
-                    // Only the MASTER HoloLens makes this decision; the chosen variant key
-                    // must be broadcast to all peers so every device runs the same act.
-                    // TODO: add FusionNetworkManager.BroadcastActVariant(decision) here.
+                    // Ask AI which Act 3 to play based on the COMBINED behavior so far.
+                    // GoToAct → FilmSync.DriveAct broadcasts the chosen variant to every peer.
                     _act3Decision = await RequestActDecision(fromAct: 2, toAct: 3);
-                    actManager.StartAct(3, _act3Decision);
+                    GoToAct(3, _act3Decision);
                     break;
 
                 case 3:
                     // Ask AI which Act 4 ending to play based on how Act 3 went.
                     _act4Decision = await RequestActDecision(fromAct: 3, toAct: 4);
-                    actManager.StartAct(4, _act4Decision);
+                    GoToAct(4, _act4Decision);
                     break;
 
                 case 4:
