@@ -236,7 +236,18 @@ namespace EchoRealm.AI
             LastRecognizedText = text;
             OnSpeechRecognized?.Invoke(text);
 
-            // Feed into behavior profile for AI scene-branching decisions
+            // Networked path: hand the speech to the master via FilmSync. The master
+            // interprets it (AI), pools it into the combined behavior profile, and
+            // broadcasts the resulting world commands to every headset.
+            var sync = EchoRealm.Networking.FilmSync.Instance;
+            if (sync != null)
+            {
+                Log($"Routing speech to FilmSync (master interprets): '{text}'");
+                sync.SubmitSpeech(text);
+                return;
+            }
+
+            // Fallback (no networking yet / editor before spawn): interpret + execute locally.
             ActionCollector.Instance?.RecordVoiceCommand(text);
 
             if (aiManager == null || !aiManager.IsReachable)
@@ -251,32 +262,32 @@ namespace EchoRealm.AI
                 return;
             }
 
-            // Get current scene state from CommandExecutor
             string sceneState = commandExecutor != null ? commandExecutor.GetSceneStateDescription() : "unknown";
             string[] availableCommands = commandExecutor != null ? commandExecutor.GetAvailableCommands() : new string[0];
 
             Log($"Sending to AI ({aiManager.ActiveBackendName}): speech='{text}', scene='{sceneState}'");
-
-            // Send to AI backend for interpretation
             var response = await aiManager.SendCommandRequestAsync(text, sceneState, availableCommands);
 
             if (response != null)
             {
-                Log($"AI response: commands=[{string.Join(", ", response.commands ?? new string[0])}], " +
-                    $"mood={response.mood}, dialogue='{response.dobby_dialogue}'");
-
+                Log($"AI response: commands=[{string.Join(", ", response.commands ?? new string[0])}], mood={response.mood}");
                 OnAIResponseReceived?.Invoke(response);
-
-                // Execute the commands
                 if (commandExecutor != null && response.commands != null)
-                {
                     commandExecutor.ExecuteCommands(response);
-                }
             }
             else
             {
                 Log("AI returned null response.", isWarning: true);
             }
+        }
+
+        /// <summary>
+        /// Raise the AI-response event. Called by FilmSync on the master after it
+        /// interprets speech authoritatively, so the master's NarrativeManager/UI still react.
+        /// </summary>
+        public void RaiseAIResponse(AICommandResponse response)
+        {
+            OnAIResponseReceived?.Invoke(response);
         }
 
         private void OnDestroy()
