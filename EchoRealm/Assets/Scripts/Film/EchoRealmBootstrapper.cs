@@ -103,6 +103,11 @@ namespace EchoRealm.Film
             if (qrAnchorHandled) return;
             qrAnchorHandled = true;
 
+            // If this was a real QR scan (not the timeout fallback), confirm on the
+            // boot label and auto-hide it after 2 seconds.
+            if (qrAnchorManager != null && qrAnchorManager.IsAnchored)
+                BootStatusLabel.Instance?.FlashThenDismiss("QR code detected!\nSpatial anchor set.", 2f);
+
             Debug.Log("[Boot] QR Anchor established. Starting Photon session...");
             currentState = BootState.ConnectingToPhoton;
             SetStatus("QR anchor set!\nConnecting to Photon...");
@@ -192,6 +197,9 @@ namespace EchoRealm.Film
         {
             if (statusText != null)
                 statusText.text = message;
+
+            // Also drive the runtime billboarded boot label, if present.
+            BootStatusLabel.Instance?.Show(message);
 
             if (!string.IsNullOrEmpty(message))
                 Debug.Log($"[Boot] Status: {message.Replace("\n", " | ")}");
