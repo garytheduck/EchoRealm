@@ -73,6 +73,10 @@ Assets/Photon/PhotonUnityNetworking/Resources/PhotonServerSettings.asset
 .env
 .env.local
 
+# Anthropic API key — never commit the secret (loaded at runtime by ClaudeBackend)
+EchoRealm/Assets/Resources/anthropic_api_key.txt
+EchoRealm/Assets/Resources/anthropic_api_key.txt.meta
+
 # Ollama models (don't commit, too large)
 models/
 

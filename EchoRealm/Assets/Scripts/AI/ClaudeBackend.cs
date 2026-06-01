@@ -60,8 +60,20 @@ namespace EchoRealm.AI
 
         private void Start()
         {
+            // Prefer a gitignored Resources file so the secret never lives in the committed scene.
+            // Create Assets/Resources/anthropic_api_key.txt (gitignored) and paste your key there.
             if (string.IsNullOrEmpty(apiKey))
-                Debug.LogWarning("[Claude] API key not set. Claude backend will be unavailable.");
+            {
+                var keyAsset = Resources.Load<TextAsset>("anthropic_api_key");
+                if (keyAsset != null && !string.IsNullOrWhiteSpace(keyAsset.text))
+                {
+                    apiKey = keyAsset.text.Trim();
+                    Debug.Log("[Claude] API key loaded from Resources/anthropic_api_key.txt");
+                }
+            }
+
+            if (string.IsNullOrEmpty(apiKey))
+                Debug.LogWarning("[Claude] API key not set (Inspector field empty and no Resources/anthropic_api_key.txt). Claude backend will be unavailable.");
         }
 
         /// <inheritdoc/>
