@@ -1743,6 +1743,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   sessionName: EchoRealm
   maxPlayers: 4
+  filmSyncPrefab: {fileID: 2182332058695365424, guid: 0d4d581d89d25e84c880cd3d75f85cc1, type: 3}
   logEvents: 1
 --- !u!4 &1657382442
 Transform:
