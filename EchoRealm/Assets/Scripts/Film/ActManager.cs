@@ -20,9 +20,10 @@ namespace EchoRealm.Film
         [Header("Act 1 — Awakening")]
         [SerializeField] private string[] oracleIntroLines = new string[]
         {
-            "Welcome to EchoRealm.",
-            "This world listens. Your voice shapes reality.",
-            "Find the Origin Echo to return home.",
+            "Welcome, travelers, to EchoRealm.",
+            "This grove lives, and it listens. Your voice shapes what grows here.",
+            "A wanderer has fallen among us, far from home.",
+            "Find the Origin Echo — the grove's heart — and you may send him back.",
             "Speak... and the world will answer."
         };
         [SerializeField] private float introLinePause = 3f;
@@ -119,12 +120,11 @@ namespace EchoRealm.Film
                 yield return new WaitForSeconds(1f);
             }
 
-            // Dobby reacts
-            var dobby = DobbyController.Instance;
-            if (dobby != null)
+            // The lost traveler stirs and looks around, startled.
+            var astronaut = AstronautController.Instance;
+            if (astronaut != null)
             {
-                dobby.ShowDialogue("Where... where are we?");
-                dobby.PlayAnimation("LookAround");
+                astronaut.PlayAnimation("LookAround");
                 yield return new WaitForSeconds(3f);
             }
 
@@ -168,10 +168,10 @@ namespace EchoRealm.Film
 
         private IEnumerator RunAct3(AI.AINarrativeDecision decision)
         {
-            string variant     = decision?.chosen_variant ?? "cooperative";
+            string variant     = decision?.chosen_variant ?? "verdant";
             string mood        = decision?.mood           ?? "warning";
             string oracleLine  = decision?.oracle_narration ??
-                                 "An obstacle blocks your path. You must work together to overcome it.";
+                                 "The grove's heart is hidden. Reach it — together.";
 
             // Oracle delivers the AI-chosen transition narration
             var oracle = OracleController.Instance;
@@ -222,9 +222,9 @@ namespace EchoRealm.Film
         {
             switch (variant)
             {
-                case "chaotic"    when obstacleChaoticVariant    != null: return obstacleChaoticVariant;
-                case "mysterious" when obstacleMysteriousVariant != null: return obstacleMysteriousVariant;
-                default: return challengeObstacle; // cooperative / default
+                case "scorched" when obstacleChaoticVariant    != null: return obstacleChaoticVariant;
+                case "twilight"  when obstacleMysteriousVariant != null: return obstacleMysteriousVariant;
+                default: return challengeObstacle; // verdant / default
             }
         }
 
@@ -280,12 +280,10 @@ namespace EchoRealm.Film
                 yield return new WaitForSeconds(5f);
             }
 
-            // Dobby waves goodbye
-            var dobby = DobbyController.Instance;
-            if (dobby != null)
+            // The Oracle gives a final blessing as the traveler departs.
+            if (oracle != null)
             {
-                dobby.PlayAnimation("Wave");
-                dobby.ShowDialogue("Goodbye, friends... until we meet again.");
+                oracle.Speak("Go now, traveler. The grove will remember you both.");
                 yield return new WaitForSeconds(3f);
             }
 
