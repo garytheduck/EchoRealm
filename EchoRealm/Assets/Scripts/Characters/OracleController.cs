@@ -193,19 +193,20 @@ namespace EchoRealm.Characters
 
         private void UpdatePulse()
         {
-            if (sphereMaterial == null) return;
-
-            // Sinusoidal pulse
+            // Sinusoidal pulse (drives both the optional sphere emission and the aura light)
             float pulse = Mathf.Lerp(minEmission,
                 IsSpeaking ? speakingMaxEmission : maxEmission,
                 (Mathf.Sin(Time.time * currentPulseSpeed) + 1f) * 0.5f);
 
-            // Smoothly transition color
-            Color currentEmission = sphereMaterial.GetColor(EmissionColorID);
-            Color newEmission = Color.Lerp(currentEmission, targetColor * pulse, Time.deltaTime * 3f);
-            sphereMaterial.SetColor(EmissionColorID, newEmission);
+            // Optional glowing sphere (only when a sphereRenderer is assigned)
+            if (sphereMaterial != null)
+            {
+                Color currentEmission = sphereMaterial.GetColor(EmissionColorID);
+                Color newEmission = Color.Lerp(currentEmission, targetColor * pulse, Time.deltaTime * 3f);
+                sphereMaterial.SetColor(EmissionColorID, newEmission);
+            }
 
-            // Sync light color and intensity
+            // Aura light: mood color + pulse — works for a humanoid Oracle (priest) with no sphere
             if (oracleLight != null)
             {
                 oracleLight.color = targetColor;
