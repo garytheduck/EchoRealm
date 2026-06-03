@@ -108,6 +108,8 @@ namespace EchoRealm.Networking
             var response = await ai.SendCommandRequestAsync(text, scene, available);
             if (response?.commands != null && response.commands.Length > 0)
             {
+                foreach (var cmd in response.commands)
+                    ActionCollector.Instance?.RecordWorldChange(cmd);
                 BroadcastCommands(response.commands);
                 VoiceCommandProcessor.Instance?.RaiseAIResponse(response); // master UI/NarrativeManager react
             }

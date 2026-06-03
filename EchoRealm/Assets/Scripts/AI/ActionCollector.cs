@@ -69,6 +69,14 @@ namespace EchoRealm.AI
             AddRecent($"Voice: \"{text}\"");
         }
 
+        /// <summary>Classify an executed world command and tally its nurture/chaos tone.</summary>
+        public void RecordWorldChange(string command)
+        {
+            var tone = CommandSentiment.Classify(command);
+            Profile.RecordWorldChange(tone);
+            if (tone != CommandTone.Neutral) AddRecent($"World: {command} ({tone})");
+        }
+
         /// <summary>
         /// Called by GestureManager on grab/tap events.
         /// </summary>
