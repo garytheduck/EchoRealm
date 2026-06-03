@@ -15,6 +15,10 @@ namespace EchoRealm.Effects
         [SerializeField] private ParticleSystem butterfliesSystem;
         [SerializeField] private ParticleSystem firefliesSystem;
 
+        [Tooltip("Material for environment particles (fire/butterflies/fireflies). Assign a lightweight " +
+                 "particle material so its shader ships in the build — avoids Shader.Find stripping/crash on HoloLens.")]
+        [SerializeField] private Material particleMaterial;
+
         [Header("Fire Settings")]
         [SerializeField] private Color fireColorStart = new Color(1f, 0.6f, 0f, 0.8f);
         [SerializeField] private Color fireColorEnd = new Color(1f, 0f, 0f, 0f);
@@ -241,11 +245,29 @@ namespace EchoRealm.Effects
         // ------------------------------------------------------------------
         private Material CreateAdditiveMaterial(Color color)
         {
-            var mat = new Material(Shader.Find("Particles/Standard Unlit"));
-            mat.SetColor("_Color", color);
-            mat.SetFloat("_Mode", 1);
-            mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-            mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.One);
+            // Prefer the Inspector-assigned material so its shader ships in the build (no stripping,
+            // and a far faster build than adding the heavy Standard particle shaders to Always Included).
+            if (particleMaterial != null)
+            {
+                var inst = new Material(particleMaterial);
+                if (inst.HasProperty("_Color")) inst.SetColor("_Color", color);
+                if (inst.HasProperty("_TintColor")) inst.SetColor("_TintColor", color);
+                return inst;
+            }
+
+            // Fallback: built-in shader; null-safe so a stripped shader can't crash Awake()
+            // (the caller assigns null safely, so StopAll() still runs — no rogue particles).
+            Shader shader = Shader.Find("Particles/Standard Unlit")
+                         ?? Shader.Find("Legacy Shaders/Particles/Alpha Blended")
+                         ?? Shader.Find("Sprites/Default");
+            if (shader == null)
+            {
+                Debug.LogWarning("[Environment] No particle shader available (stripped on device). " +
+                                 "Assign 'Particle Material' on EnvironmentController to fix rendering.");
+                return null;
+            }
+            var mat = new Material(shader);
+            if (mat.HasProperty("_Color")) mat.SetColor("_Color", color);
             return mat;
         }
     }

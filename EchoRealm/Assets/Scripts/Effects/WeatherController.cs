@@ -17,6 +17,11 @@ namespace EchoRealm.Effects
         [SerializeField] private ParticleSystem windSystem;
         [SerializeField] private ParticleSystem dustSystem;
 
+        [Tooltip("Material for all weather particles. Assign a lightweight particle material " +
+                 "(e.g. Mobile/Particles/Additive). Because it's referenced here, its shader ships " +
+                 "in the build — no Shader.Find, no stripping/magenta/crash on HoloLens, fast build.")]
+        [SerializeField] private Material particleMaterial;
+
         [Header("Rain Settings")]
         [SerializeField] private int rainParticleCount = 500;
         [SerializeField] private Color rainColor = new Color(0.7f, 0.8f, 1f, 0.5f);
@@ -225,12 +230,31 @@ namespace EchoRealm.Effects
         // ------------------------------------------------------------------
         private Material CreateParticleMaterial(Color color)
         {
-            // Use Unity's built-in particle shader
-            var mat = new Material(Shader.Find("Particles/Standard Unlit"));
-            mat.SetColor("_Color", color);
-            mat.SetFloat("_Mode", 1); // Additive blend
-            mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-            mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.One);
+            // Prefer an Inspector-assigned material — its shader is referenced by the scene and so
+            // ships in the build (no stripping), and it builds far faster than adding the heavy
+            // Standard particle shaders to Always Included Shaders.
+            if (particleMaterial != null)
+            {
+                var inst = new Material(particleMaterial);
+                if (inst.HasProperty("_Color")) inst.SetColor("_Color", color);
+                if (inst.HasProperty("_TintColor")) inst.SetColor("_TintColor", color);
+                return inst;
+            }
+
+            // Fallback: a built-in shader. Works in the Editor; may be stripped on device — return
+            // null rather than crashing if nothing is found (the caller assigns null safely, so
+            // Awake() finishes and StopAll() runs — no rogue particles playing from the start).
+            Shader shader = Shader.Find("Particles/Standard Unlit")
+                         ?? Shader.Find("Legacy Shaders/Particles/Alpha Blended")
+                         ?? Shader.Find("Sprites/Default");
+            if (shader == null)
+            {
+                Debug.LogWarning("[Weather] No particle shader available (stripped on device). " +
+                                 "Assign 'Particle Material' on WeatherController to fix rendering.");
+                return null;
+            }
+            var mat = new Material(shader);
+            if (mat.HasProperty("_Color")) mat.SetColor("_Color", color);
             return mat;
         }
     }
