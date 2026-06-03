@@ -24,6 +24,7 @@ namespace EchoRealm.Networking
         // Minimal late-join snapshot. Live transitions go via RPC_StartAct.
         [Networked] public int CurrentAct { get; set; }
         [Networked] public NetworkString<_16> ChosenVariant { get; set; }
+        [Networked] public bool IsPocketed { get; set; }
 
         public override void Spawned()
         {
@@ -42,6 +43,9 @@ namespace EchoRealm.Networking
                 Debug.Log($"[FilmSync] Late join — catching up to Act {CurrentAct} (variant '{d.chosen_variant}').");
                 ActManager.Instance?.StartAct(CurrentAct, d);
             }
+
+            // Late join while the world is pocketed: come up paused too.
+            if (IsPocketed) WorldPocket.Instance?.ApplyPocket();
         }
 
         public override void Despawned(NetworkRunner runner, bool hasState)
@@ -154,6 +158,31 @@ namespace EchoRealm.Networking
         private void RPC_SubmitInteraction(int playerIndex, string objectId, int type)
         {
             CooperationDetector.Instance?.ReportInteraction(playerIndex, objectId, (InteractionType)type);
+        }
+
+        // ------------------------------------------------------------------
+        // Pocket the world — shared pause across every headset (anyone can trigger)
+        // ------------------------------------------------------------------
+
+        /// <summary>Any device requests pocket(true)/unpocket(false); the master broadcasts it to all.</summary>
+        public void RequestPocket(bool pocketed)
+        {
+            if (HasStateAuthority) { IsPocketed = pocketed; RPC_SetPocket(pocketed); }
+            else RPC_RequestPocket(pocketed);
+        }
+
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+        private void RPC_RequestPocket(bool pocketed)
+        {
+            IsPocketed = pocketed;     // record on the master (for late-joiners)
+            RPC_SetPocket(pocketed);   // fan out to everyone
+        }
+
+        [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+        private void RPC_SetPocket(bool pocketed)
+        {
+            if (pocketed) WorldPocket.Instance?.ApplyPocket();
+            else          WorldPocket.Instance?.ApplyUnpocket();
         }
     }
 }

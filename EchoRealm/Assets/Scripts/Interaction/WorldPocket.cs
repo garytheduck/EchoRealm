@@ -24,11 +24,11 @@ namespace EchoRealm.Interaction
         [Tooltip("Viewport Y at/below which the world is 'at the bottom of the screen' (0 = bottom, 1 = top).")]
         [SerializeField] private float bottomViewport = 0.35f;
 
-        [Header("Pop-out (unpocket)")]
-        [Tooltip("Scale the world returns at when unpocketed.")]
-        [SerializeField] private float popOutScale = 0.05f;
-        [Tooltip("Distance (m) in front of the camera the world reappears.")]
-        [SerializeField] private float popOutDistance = 0.6f;
+        // World pose saved at pocket time, restored on unpocket (returns it where/what it was).
+        private Vector3 _savedScale = Vector3.one;
+        private Vector3 _savedPos;
+        private Quaternion _savedRot = Quaternion.identity;
+        private bool _hasSaved;
 
         [Header("Debug")]
         [SerializeField] private bool logEvents = true;
@@ -69,31 +69,54 @@ namespace EchoRealm.Interaction
             if (pulledIn && atBottom) Pocket();
         }
 
-        /// <summary>Hide the world and pause the film. Resume with Unpocket().</summary>
+        // Public entry points (gesture/voice). They REQUEST a networked pocket so every headset
+        // pauses together; the local effect runs in ApplyPocket/ApplyUnpocket — called directly
+        // when solo, or by FilmSync's RPC on every device when networked.
         public void Pocket()
         {
+            if (IsPocketed) return;
+            var sync = Networking.FilmSync.Instance;
+            if (sync != null) sync.RequestPocket(true);
+            else ApplyPocket();
+        }
+
+        public void Unpocket()
+        {
+            if (!IsPocketed) return;
+            var sync = Networking.FilmSync.Instance;
+            if (sync != null) sync.RequestPocket(false);
+            else ApplyUnpocket();
+        }
+
+        /// <summary>Local effect (runs on EVERY headset): save pose, hide the world, pause time.</summary>
+        public void ApplyPocket()
+        {
             if (IsPocketed || sceneRoot == null) return;
+            _savedScale = sceneRoot.localScale;
+            _savedPos   = sceneRoot.position;
+            _savedRot   = sceneRoot.rotation;
+            _hasSaved   = true;
+
             IsPocketed = true;
             sceneRoot.gameObject.SetActive(false);
             Time.timeScale = 0f;
-            if (logEvents) Debug.Log("[WorldPocket] Pocketed — scene PAUSED. Say 'unpocket scene' to resume.");
+            if (logEvents) Debug.Log("[WorldPocket] Pocketed — scene PAUSED for all. Say 'unpocket scene' to resume.");
         }
 
-        /// <summary>Pop the world back out at pop-out scale in front of the user and resume the film.</summary>
-        public void Unpocket()
+        /// <summary>Local effect (runs on EVERY headset): restore the world where it was, resume time.</summary>
+        public void ApplyUnpocket()
         {
             if (!IsPocketed || sceneRoot == null) return;
             Time.timeScale = 1f;
             sceneRoot.gameObject.SetActive(true);
-
-            var cam = Camera.main;
-            if (cam != null)
+            if (_hasSaved)
             {
-                sceneRoot.localScale = Vector3.one * popOutScale;
-                sceneRoot.position = cam.transform.position + cam.transform.forward * popOutDistance;
+                sceneRoot.localScale = _savedScale;
+                sceneRoot.position   = _savedPos;
+                sceneRoot.rotation   = _savedRot;
             }
             IsPocketed = false;
-            if (logEvents) Debug.Log("[WorldPocket] Unpocketed — scene RESUMED at pop-out scale.");
+            if (logEvents) Debug.Log("[WorldPocket] Unpocketed — scene RESUMED.");
         }
     }
 }
