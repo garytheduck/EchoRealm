@@ -25,6 +25,16 @@ namespace EchoRealm.Effects
         [Header("Rain Settings")]
         [SerializeField] private int rainParticleCount = 500;
         [SerializeField] private Color rainColor = new Color(0.7f, 0.8f, 1f, 0.5f);
+        [Tooltip("Width/depth (m) of the rain area — larger covers more ground.")]
+        [SerializeField] private float rainAreaSize = 8f;
+        [Tooltip("Height (m) the rain spawns above the weather origin.")]
+        [SerializeField] private float rainHeight = 4f;
+        [Tooltip("Initial fall speed of drops (lower = gentler).")]
+        [SerializeField] private float rainFallSpeed = 2f;
+        [Tooltip("Gravity pull on drops (lower = slower, less acceleration).")]
+        [SerializeField] private float rainGravity = 0.25f;
+        [Tooltip("Seconds each drop lives (raise if drops vanish before landing).")]
+        [SerializeField] private float rainLifetime = 5f;
 
         [Header("Fog Settings")]
         [SerializeField] private int fogParticleCount = 100;
@@ -72,17 +82,17 @@ namespace EchoRealm.Effects
         {
             var go = new GameObject("RainEffect");
             go.transform.SetParent(transform);
-            go.transform.localPosition = new Vector3(0, 2f, 0);
+            go.transform.localPosition = new Vector3(0, rainHeight, 0);
 
             var ps = go.AddComponent<ParticleSystem>();
             var main = ps.main;
             main.maxParticles = rainParticleCount;
-            main.startLifetime = 2f;
-            main.startSpeed = 5f;
+            main.startLifetime = rainLifetime;
+            main.startSpeed = rainFallSpeed;
             main.startSize = 0.02f;
             main.startColor = rainColor;
             main.simulationSpace = ParticleSystemSimulationSpace.World;
-            main.gravityModifier = 1f;
+            main.gravityModifier = rainGravity;
             main.loop = true;
 
             var emission = ps.emission;
@@ -90,7 +100,7 @@ namespace EchoRealm.Effects
 
             var shape = ps.shape;
             shape.shapeType = ParticleSystemShapeType.Box;
-            shape.scale = new Vector3(3f, 0.1f, 3f);
+            shape.scale = new Vector3(rainAreaSize, 0.1f, rainAreaSize);
 
             // Stretch particles to look like raindrops
             var renderer = go.GetComponent<ParticleSystemRenderer>();
