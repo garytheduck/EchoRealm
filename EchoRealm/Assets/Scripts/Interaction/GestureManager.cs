@@ -116,17 +116,15 @@ namespace EchoRealm.Interaction
 
         private void ReportGesture(GameObject target, InteractionType type)
         {
-            var cooperation = CooperationDetector.Instance;
-            if (cooperation == null) return;
-
-            // Determine player index from network (0 = local master, 1 = other)
-            // For now, default to player 0 (local)
             int playerIndex = 0;
             var networkManager = Networking.FusionNetworkManager.Instance;
-            if (networkManager != null && !networkManager.IsMaster)
-                playerIndex = 1;
+            if (networkManager != null && !networkManager.IsMaster) playerIndex = 1;
 
-            cooperation.ReportInteraction(playerIndex, target, type);
+            var sync = Networking.FilmSync.Instance;
+            if (sync != null)
+                sync.SubmitInteraction(playerIndex, target.name, type); // → master's detector
+            else
+                CooperationDetector.Instance?.ReportInteraction(playerIndex, target, type); // solo/editor fallback
         }
 
         private void Log(string message)
