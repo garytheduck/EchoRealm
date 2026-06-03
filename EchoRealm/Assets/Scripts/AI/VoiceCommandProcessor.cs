@@ -236,6 +236,20 @@ namespace EchoRealm.AI
             LastRecognizedText = text;
             OnSpeechRecognized?.Invoke(text);
 
+            // Meta-commands handled locally — these must work even while the scene is paused
+            // (Time.timeScale = 0), so they bypass the AI/network pipeline. Check "unpocket" first.
+            string meta = text.ToLowerInvariant();
+            if (meta.Contains("unpocket"))
+            {
+                EchoRealm.Interaction.WorldPocket.Instance?.Unpocket();
+                return;
+            }
+            if (meta.Contains("pocket"))
+            {
+                EchoRealm.Interaction.WorldPocket.Instance?.Pocket();
+                return;
+            }
+
             // Networked path: hand the speech to the master via FilmSync. The master
             // interprets it (AI), pools it into the combined behavior profile, and
             // broadcasts the resulting world commands to every headset.
