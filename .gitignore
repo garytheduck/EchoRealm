@@ -91,3 +91,6 @@ licenta_output.md
 
 # Thesis document (personal, not for repo)
 *.docx
+
+# Personal helper script (not part of the Unity project)
+generate_disertatie.js
