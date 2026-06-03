@@ -161,16 +161,21 @@ namespace EchoRealm.AI
             }
 
             string sessionSummary = BuildSessionSummary();
+            string gazeSummary = Interaction.EyeTrackingManager.Instance != null
+                ? Interaction.EyeTrackingManager.Instance.GetGazeSummary()
+                : "nothing specific";
 
             string prompt =
                 "You are the Oracle of EchoRealm — a mysterious, wise entity made of light and particles. " +
                 "The interactive mixed reality film is ending. Two users (wearing HoloLens 2 headsets) " +
                 "have been transforming the world with their voice and cooperating to solve challenges. " +
                 $"Here is what happened in this session: {sessionSummary} " +
+                $"What the players watched most: {gazeSummary}. " +
                 "Generate a final monologue (3-5 sentences) that: " +
                 "1. Reflects on what the users did and chose during the experience. " +
                 "2. Has a tone matching the session mood (mysterious, joyful, melancholic, or excited). " +
                 "3. Ends with a poetic farewell as the astronaut steps through the portal. " +
+                "4. If their gaze lingered on something meaningful (the traveler, the fire), weave it in. " +
                 "Return ONLY the monologue text, no JSON, no quotes.";
 
             Log($"Generating final Oracle monologue via {aiManager.ActiveBackendName}...");

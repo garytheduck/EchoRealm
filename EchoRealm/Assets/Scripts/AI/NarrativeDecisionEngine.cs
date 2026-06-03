@@ -109,6 +109,10 @@ namespace EchoRealm.AI
                 ? ActionCollector.Instance.GetBehaviorSummary()
                 : "No behavior data (ActionCollector not found).";
 
+            string gazeSummary = Interaction.EyeTrackingManager.Instance != null
+                ? Interaction.EyeTrackingManager.Instance.GetGazeSummary()
+                : "nothing specific";
+
             var manager = AIManager.Instance;
             if (manager == null || !manager.IsReachable)
             {
@@ -125,6 +129,7 @@ namespace EchoRealm.AI
                 "You are the AI director of EchoRealm, a mixed reality film on HoloLens 2. " +
                 $"Act {fromAct} has just ended and Act {toAct} is about to begin. " +
                 $"Here is how the players behaved during Act {fromAct}: {behaviorSummary} " +
+                $"What the players watched most: {gazeSummary}. " +
                 $"Available Act {toAct} variants:\n{variantLines}" +
                 "Choose the variant that best matches the players' behavior and creates the most engaging narrative arc. " +
                 "Respond ONLY with valid JSON — no markdown, no explanation — containing exactly these fields: " +
