@@ -62,6 +62,7 @@ namespace EchoRealm.Interaction
             {
                 playerIndex = playerIndex,
                 targetObject = targetObject,
+                objectId = targetObject != null ? targetObject.name : "",
                 type = interactionType,
                 timestamp = Time.time
             };
@@ -73,6 +74,22 @@ namespace EchoRealm.Interaction
 
             Log($"Player {playerIndex + 1} → {interactionType} on '{targetObject.name}'");
 
+            CheckForCooperation();
+        }
+
+        /// <summary>Network-safe report: identify the object by a stable id string (no GameObject ref).</summary>
+        public void ReportInteraction(int playerIndex, string objectId, InteractionType interactionType)
+        {
+            var interaction = new PlayerInteraction
+            {
+                playerIndex = playerIndex,
+                targetObject = null,
+                objectId = objectId,
+                type = interactionType,
+                timestamp = Time.time
+            };
+            if (playerIndex == 0) lastPlayer1Action = interaction; else lastPlayer2Action = interaction;
+            Log($"Player {playerIndex + 1} → {interactionType} on '{objectId}' (net)");
             CheckForCooperation();
         }
 
@@ -112,12 +129,13 @@ namespace EchoRealm.Interaction
             // Check if actions are within cooperation window
             if (timeDiff > cooperationWindowSeconds) return;
 
-            // Pattern 1: Both interact with same object
-            if (lastPlayer1Action.targetObject == lastPlayer2Action.targetObject)
+            // Pattern 1: Both interact with same object (compare by id — network-safe)
+            if (!string.IsNullOrEmpty(lastPlayer1Action.objectId) &&
+                lastPlayer1Action.objectId == lastPlayer2Action.objectId)
             {
                 var coopEvent = new CooperationEvent
                 {
-                    description = $"Both players interacted with '{lastPlayer1Action.targetObject.name}' " +
+                    description = $"Both players interacted with '{lastPlayer1Action.objectId}' " +
                                   $"(P1: {lastPlayer1Action.type}, P2: {lastPlayer2Action.type})",
                     timestamp = Time.time,
                     type = CooperationType.SimultaneousInteraction
@@ -205,6 +223,7 @@ namespace EchoRealm.Interaction
     {
         public int playerIndex;
         public GameObject targetObject;
+        public string objectId;
         public InteractionType type;
         public float timestamp;
     }
