@@ -27,6 +27,12 @@ namespace EchoRealm.Characters
         [SerializeField] private ParticleSystem orbitalParticles;
         [SerializeField] private Light oracleLight;
 
+        [Header("Humanoid Oracle (optional — for a character model like the priest)")]
+        [Tooltip("If set, the Oracle is a humanoid (priest). Talk/Idle triggers drive it while speaking.")]
+        [SerializeField] private Animator bodyAnimator;
+        [SerializeField] private string talkTrigger = "Talk";
+        [SerializeField] private string idleTrigger = "Idle";
+
         [Header("Dialogue")]
         [SerializeField] private TMPro.TextMeshPro dialogueText;
         [SerializeField] private float dialogueDisplayTime = 6f;
@@ -226,6 +232,7 @@ namespace EchoRealm.Characters
             dialogueText.gameObject.SetActive(true);
             dialogueTimer = dialogueDisplayTime;
             IsSpeaking = true;
+            if (bodyAnimator != null) bodyAnimator.SetTrigger(talkTrigger);
         }
 
         private void HideDialogue()
@@ -233,6 +240,7 @@ namespace EchoRealm.Characters
             if (dialogueText != null)
                 dialogueText.gameObject.SetActive(false);
             IsSpeaking = false;
+            if (bodyAnimator != null) bodyAnimator.SetTrigger(idleTrigger);
         }
 
         private IEnumerator DramaticSpeechCoroutine(string fullText, float wordsPerSecond)
@@ -246,6 +254,7 @@ namespace EchoRealm.Characters
                 dialogueText.gameObject.SetActive(true);
 
             IsSpeaking = true;
+            if (bodyAnimator != null) bodyAnimator.SetTrigger(talkTrigger);
 
             foreach (string word in words)
             {
