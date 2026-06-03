@@ -250,7 +250,7 @@ namespace EchoRealm.AI
 
         private static ActVariantSet[] BuildDefaultVariantSets() => new[]
         {
-            // Act 2 → Act 3: challenge type depends on player style
+            // Act 2 → Act 3: the trial mirrors the world the players shaped (nurture vs chaos).
             new ActVariantSet
             {
                 fromAct = 2,
@@ -258,38 +258,38 @@ namespace EchoRealm.AI
                 {
                     new SceneVariant
                     {
-                        key         = "cooperative",
-                        displayName = "Calea Cooperării",
+                        key         = "verdant",
+                        displayName = "The Verdant Trial",
                         aiDescription =
-                            "Players must simultaneously grab the same object to dissolve the barrier. " +
-                            "Best for players who showed teamwork (high cooperation count).",
-                        fallbackOracleLine = "Only together can you break what divides you.",
+                            "The players mostly NURTURED the grove (grew trees/flowers, butterflies, daylight). " +
+                            "The heart is wrapped in blooming overgrowth the two must part together. Choose for a nurturing world tone.",
+                        fallbackOracleLine = "The grove has bloomed for you. Now part its embrace — together.",
                         fallbackMood       = "calm"
                     },
                     new SceneVariant
                     {
-                        key         = "chaotic",
-                        displayName = "Calea Haosului",
+                        key         = "scorched",
+                        displayName = "The Scorched Trial",
                         aiDescription =
-                            "A storm of competing voice effects erupts. Players must speak the SAME command " +
-                            "simultaneously to silence it. Best for talkative/impulsive players (high voice count).",
-                        fallbackOracleLine = "Your voices created this storm. Now silence it — together.",
+                            "The players mostly unleashed CHAOS (fire, storms, earthquakes, night). " +
+                            "The heart is ringed by flame and storm the two must calm together. Choose for a chaotic world tone.",
+                        fallbackOracleLine = "You stirred the grove's fury. Now quiet it — together.",
                         fallbackMood       = "scared"
                     },
                     new SceneVariant
                     {
-                        key         = "mysterious",
-                        displayName = "Calea Misterului",
+                        key         = "twilight",
+                        displayName = "The Twilight Trial",
                         aiDescription =
-                            "Hidden glyphs appear that only reveal themselves under sustained gaze. " +
-                            "Best for explorers (high manipulation + gaze count, diverse objects touched).",
-                        fallbackOracleLine = "Look closer. The answer has been here all along.",
+                            "The players were BALANCED or watchful. Hidden glyphs on the stones reveal only " +
+                            "when both focus on the heart together. Choose for a balanced/observant world tone.",
+                        fallbackOracleLine = "Between bloom and fire lies a hidden path. Look — together.",
                         fallbackMood       = "curious"
                     }
                 }
             },
 
-            // Act 3 → Act 4: ending tone depends on how the challenge went
+            // Act 3 → Act 4: ending tone reflects how they shaped and solved the world.
             new ActVariantSet
             {
                 fromAct = 3,
@@ -300,9 +300,8 @@ namespace EchoRealm.AI
                         key         = "triumphant",
                         displayName = "Final Triumfal",
                         aiDescription =
-                            "Players overcame the challenge with ease and cooperation. " +
-                            "The ending is joyful and celebratory. Oracle is warm and proud.",
-                        fallbackOracleLine = "You have proven that EchoRealm's heart beats in harmony.",
+                            "A nurturing, harmonious session that solved the trial well. Warm, proud, celebratory.",
+                        fallbackOracleLine = "You shaped this world with care, and it answered in kind.",
                         fallbackMood       = "joyful"
                     },
                     new SceneVariant
@@ -310,9 +309,8 @@ namespace EchoRealm.AI
                         key         = "bittersweet",
                         displayName = "Final Melancolie",
                         aiDescription =
-                            "Players struggled but persisted. The ending acknowledges difficulty and growth. " +
-                            "Oracle is gentle and reflective.",
-                        fallbackOracleLine = "Every struggle leaves a mark. Yours made this world stronger.",
+                            "A chaotic or hard-won session. Reflective and gentle, acknowledging the storm they raised.",
+                        fallbackOracleLine = "You raised storms, yet found your way through them. That, too, is wisdom.",
                         fallbackMood       = "sad"
                     },
                     new SceneVariant
@@ -320,9 +318,8 @@ namespace EchoRealm.AI
                         key         = "mysterious",
                         displayName = "Final Misterios",
                         aiDescription =
-                            "Players explored and questioned everything. The ending is ambiguous and wondrous. " +
-                            "Oracle raises more questions than answers.",
-                        fallbackOracleLine = "What you have seen here — is it memory, or prophecy? Only you can answer.",
+                            "A watchful, exploratory session. Ambiguous and wondrous; raises more questions than answers.",
+                        fallbackOracleLine = "What you witnessed here — was it memory, or prophecy? Only you can say.",
                         fallbackMood       = "mysterious"
                     }
                 }
