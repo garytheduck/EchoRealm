@@ -2,6 +2,7 @@ using Fusion;
 using UnityEngine;
 using EchoRealm.AI;
 using EchoRealm.Film;
+using EchoRealm.Interaction;
 
 namespace EchoRealm.Networking
 {
@@ -136,6 +137,23 @@ namespace EchoRealm.Networking
                 string cmd = raw.Trim();
                 if (cmd.Length > 0) exec.ExecuteCommand(cmd);
             }
+        }
+
+        // ------------------------------------------------------------------
+        // Interaction → master (cooperation detection across both headsets)
+        // ------------------------------------------------------------------
+
+        /// <summary>Any device reports a player interaction; the master's detector evaluates cooperation.</summary>
+        public void SubmitInteraction(int playerIndex, string objectId, InteractionType type)
+        {
+            if (HasStateAuthority) CooperationDetector.Instance?.ReportInteraction(playerIndex, objectId, type);
+            else RPC_SubmitInteraction(playerIndex, objectId, (int)type);
+        }
+
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+        private void RPC_SubmitInteraction(int playerIndex, string objectId, int type)
+        {
+            CooperationDetector.Instance?.ReportInteraction(playerIndex, objectId, (InteractionType)type);
         }
     }
 }
