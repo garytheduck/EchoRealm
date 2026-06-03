@@ -21,6 +21,9 @@ namespace EchoRealm.AI
         public int CooperationCount   { get; private set; }
         public int GazeEventCount     { get; private set; }
 
+        public int NurtureCount { get; private set; }
+        public int ChaosCount   { get; private set; }
+
         private readonly HashSet<string> _interactedObjects = new HashSet<string>();
 
         /// <summary>Number of distinct objects the players touched or gazed at.</summary>
@@ -50,6 +53,24 @@ namespace EchoRealm.AI
             GazeEventCount++;
             if (!string.IsNullOrEmpty(objectName))
                 _interactedObjects.Add(objectName);
+        }
+
+        public void RecordWorldChange(CommandTone tone)
+        {
+            if (tone == CommandTone.Nurture) NurtureCount++;
+            else if (tone == CommandTone.Chaos) ChaosCount++;
+        }
+
+        /// <summary>"nurturing", "chaotic", or "balanced" based on the world commands given.</summary>
+        public string WorldTone
+        {
+            get
+            {
+                if (NurtureCount == 0 && ChaosCount == 0) return "untouched";
+                if (NurtureCount >= ChaosCount * 2) return "nurturing";
+                if (ChaosCount >= NurtureCount * 2) return "chaotic";
+                return "balanced";
+            }
         }
 
         // ------------------------------------------------------------------
@@ -94,6 +115,7 @@ namespace EchoRealm.AI
                 $"Cooperation events: {CooperationCount}. " +
                 $"Gaze interactions: {GazeEventCount}. " +
                 $"Unique objects touched or gazed at: {UniqueObjectsInteracted}. " +
+                $"World tone: {WorldTone} (nurturing acts: {NurtureCount}, chaotic acts: {ChaosCount}). " +
                 $"Total interactions: {TotalInteractionCount}.";
         }
 
@@ -104,6 +126,8 @@ namespace EchoRealm.AI
             ManipulationCount  = 0;
             CooperationCount   = 0;
             GazeEventCount     = 0;
+            NurtureCount       = 0;
+            ChaosCount         = 0;
             _interactedObjects.Clear();
         }
     }
