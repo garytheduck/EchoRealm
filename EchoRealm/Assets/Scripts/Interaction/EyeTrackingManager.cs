@@ -177,6 +177,7 @@ namespace EchoRealm.Interaction
             if (previousTarget == CurrentTarget && CurrentDwellTime >= dwellThresholdSeconds)
             {
                 OnDwellCompleted?.Invoke(CurrentTarget);
+                AI.ActionCollector.Instance?.RecordGaze(CurrentTarget.name);
                 if (logEvents) Log($"DWELL completed on: {CurrentTarget.name} ({CurrentDwellTime:F1}s)");
 
                 // Reset so it doesn't fire repeatedly
