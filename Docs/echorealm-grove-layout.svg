@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 1010" font-family="Segoe UI, Arial, sans-serif">
+  <rect x="0" y="0" width="820" height="1010" fill="#10141b"/>
+  <text x="410" y="34" fill="#f2e9d8" font-size="22" font-weight="bold" text-anchor="middle">EchoRealm — Grove Layout (top-down)</text>
+  <text x="410" y="56" fill="#8aa0b4" font-size="13" text-anchor="middle">metres, local to SceneRoot · X = right, Z = forward · viewers at the bottom look toward +Z</text>
+
+  <!-- grid -->
+  <g stroke="#222c38" stroke-width="1">
+    <line x1="80" y1="100" x2="80" y2="900"/><line x1="160" y1="100" x2="160" y2="900"/>
+    <line x1="240" y1="100" x2="240" y2="900"/><line x1="320" y1="100" x2="320" y2="900"/>
+    <line x1="400" y1="100" x2="400" y2="900"/><line x1="480" y1="100" x2="480" y2="900"/>
+    <line x1="560" y1="100" x2="560" y2="900"/><line x1="640" y1="100" x2="640" y2="900"/>
+    <line x1="720" y1="100" x2="720" y2="900"/>
+    <line x1="80" y1="115" x2="720" y2="115"/><line x1="80" y1="225" x2="720" y2="225"/>
+    <line x1="80" y1="335" x2="720" y2="335"/><line x1="80" y1="445" x2="720" y2="445"/>
+    <line x1="80" y1="555" x2="720" y2="555"/><line x1="80" y1="665" x2="720" y2="665"/>
+    <line x1="80" y1="775" x2="720" y2="775"/><line x1="80" y1="885" x2="720" y2="885"/>
+  </g>
+  <!-- center axes -->
+  <line x1="400" y1="100" x2="400" y2="900" stroke="#3a4a5c" stroke-width="2"/>
+  <line x1="80" y1="665" x2="720" y2="665" stroke="#3a4a5c" stroke-width="2"/>
+  <!-- axis labels -->
+  <g fill="#6f8498" font-size="12" text-anchor="middle">
+    <text x="80" y="916">-4</text><text x="160" y="916">-3</text><text x="240" y="916">-2</text>
+    <text x="320" y="916">-1</text><text x="400" y="916">X 0</text><text x="480" y="916">1</text>
+    <text x="560" y="916">2</text><text x="640" y="916">3</text><text x="720" y="916">4</text>
+  </g>
+  <g fill="#6f8498" font-size="12" text-anchor="end">
+    <text x="68" y="119">Z 5</text><text x="68" y="229">4</text><text x="68" y="339">3</text>
+    <text x="68" y="449">2</text><text x="68" y="559">1</text><text x="68" y="669">0</text>
+    <text x="68" y="779">-1</text><text x="68" y="889">-2</text>
+  </g>
+
+  <!-- effect zone (rain/fire ~ over clearing) -->
+  <circle cx="400" cy="489" r="200" fill="#2b6cb022" stroke="#4A90D9" stroke-width="1.5" stroke-dasharray="6 6"/>
+  <text x="400" y="300" fill="#7fb2e8" font-size="12" text-anchor="middle">weather / fire zone (centred on clearing)</text>
+
+  <!-- forest ring (decor trees) -->
+  <g fill="#3f8f4d" stroke="#2c6537" stroke-width="2">
+    <circle cx="680" cy="500" r="16"/><circle cx="600" cy="225" r="16"/><circle cx="400" cy="115" r="16"/>
+    <circle cx="200" cy="225" r="16"/><circle cx="120" cy="500" r="16"/><circle cx="200" cy="775" r="16"/>
+    <circle cx="400" cy="885" r="16"/><circle cx="600" cy="775" r="16"/>
+  </g>
+  <text x="120" y="478" fill="#5fae6b" font-size="11" text-anchor="middle">forest ring</text>
+
+  <!-- ForestGroup (hidden, grow_tree) -->
+  <circle cx="400" cy="500" r="70" fill="none" stroke="#3f8f4d" stroke-width="1.5" stroke-dasharray="4 5"/>
+  <text x="400" y="500" fill="#5fae6b" font-size="11" text-anchor="middle">ForestGroup</text>
+  <text x="400" y="515" fill="#5a6b78" font-size="10" text-anchor="middle">(hidden · grow_tree)</text>
+
+  <!-- FlowersGroup (hidden, grow_flowers) -->
+  <g fill="#d64545"><circle cx="432" cy="555" r="5"/><circle cx="416" cy="567" r="5"/><circle cx="448" cy="566" r="5"/></g>
+  <text x="470" y="572" fill="#e07a7a" font-size="11" text-anchor="start">FlowersGroup (hidden · grow_flowers)</text>
+
+  <!-- PathBlockade -->
+  <rect x="320" y="470" width="160" height="16" rx="4" fill="#6B4A2B"/>
+  <text x="400" y="463" fill="#b08a5e" font-size="11" text-anchor="middle">PathBlockade  (0,0,1.7) — open_path clears it</text>
+
+  <!-- PortalTarget -->
+  <circle cx="400" cy="445" r="10" fill="none" stroke="#D4AF37" stroke-width="2" stroke-dasharray="3 3"/>
+  <text x="412" y="442" fill="#c8a94a" font-size="10" text-anchor="start">PortalTarget (0,0,2.0)</text>
+
+  <!-- Heart Stone -->
+  <circle cx="400" cy="390" r="24" fill="#D4AF37" stroke="#8a6d1f" stroke-width="3"/>
+  <text x="400" y="396" fill="#3a2e08" font-size="18" font-weight="bold" text-anchor="middle">✦</text>
+  <text x="400" y="352" fill="#f0d77a" font-size="14" font-weight="bold" text-anchor="middle">HEART STONE — Origin Echo</text>
+  <text x="400" y="368" fill="#c8b06a" font-size="11" text-anchor="middle">(0, 0, 2.5) · trials + portal here</text>
+
+  <!-- Oracle -->
+  <circle cx="488" cy="423" r="18" fill="#7A3FF2" stroke="#4a1fa0" stroke-width="3"/>
+  <text x="488" y="428" fill="#fff" font-size="13" font-weight="bold" text-anchor="middle">O</text>
+  <text x="512" y="420" fill="#b69cf5" font-size="12" text-anchor="start">Oracle (priest)</text>
+  <text x="512" y="434" fill="#7d6fae" font-size="10" text-anchor="start">(1.1, 0, 2.2) · Yrot 200</text>
+
+  <!-- Astronaut -->
+  <circle cx="384" cy="555" r="18" fill="#f4f4f4" stroke="#2a2a2a" stroke-width="3"/>
+  <text x="384" y="560" fill="#222" font-size="13" font-weight="bold" text-anchor="middle">A</text>
+  <text x="360" y="552" fill="#dfe6ec" font-size="12" text-anchor="end">Astronaut</text>
+  <text x="360" y="566" fill="#9fb0bd" font-size="10" text-anchor="end">(-0.2, 0, 1.0) · Yrot 180</text>
+
+  <!-- Users -->
+  <g fill="#2fb3ad" stroke="#176f6a" stroke-width="2"><circle cx="368" cy="720" r="13"/><circle cx="432" cy="720" r="13"/></g>
+  <line x1="400" y1="705" x2="400" y2="640" stroke="#2fb3ad" stroke-width="3" marker-end="url(#arrow)"/>
+  <defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#2fb3ad"/></marker></defs>
+  <text x="400" y="760" fill="#5fd6d0" font-size="12" text-anchor="middle">VIEWERS (stand ~Z -0.5, look toward +Z)</text>
+
+  <!-- legend -->
+  <rect x="600" y="930" width="210" height="72" rx="6" fill="#161c25" stroke="#2a3644"/>
+  <text x="612" y="950" fill="#cdd8e2" font-size="11">✦ gold = story-critical (Heart Stone/portal)</text>
+  <text x="612" y="967" fill="#cdd8e2" font-size="11">O purple Oracle · A white Astronaut</text>
+  <text x="612" y="984" fill="#cdd8e2" font-size="11">green = forest · red = flowers</text>
+  <text x="612" y="999" fill="#cdd8e2" font-size="11">teal = viewers · dashed = hidden/zone</text>
+</svg>
