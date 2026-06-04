@@ -148,13 +148,19 @@ namespace EchoRealm.AI
             string prompt =
                 "You are the AI director of EchoRealm, a mixed reality film on HoloLens 2. " +
                 $"Available commands: [{commandList}]. " +
-                $"Scene: {sceneState}. " +
-                $"User said: \"{userSpeech}\". " +
-                "Respond ONLY with a valid JSON object — no markdown, no explanation. " +
-                "The JSON must contain exactly these fields: " +
+                $"Current scene state: {sceneState}. " +
+                $"A viewer said: \"{userSpeech}\". " +
+                "Translate the viewer's words into world commands, using ONLY commands from the available list. Rules: " +
+                "(1) A single sentence may contain SEVERAL requests — include EVERY matching command in the array " +
+                "(e.g. \"make it rain and add a few more trees\" -> [\"rain\",\"grow_tree\"]). " +
+                "(2) To remove / stop / undo / clear something, pick the matching opposite command " +
+                "(e.g. \"make the rain go away\" -> [\"stop_rain\"]; \"put out the fire\" -> [\"stop_fire\"]; " +
+                "\"turn it back to day\" -> [\"day\"]; \"clear the fog\" -> [\"stop_fog\"]; \"open the path\" -> [\"open_path\"]). " +
+                "(3) Don't repeat something already active in the scene state, and if nothing in the list matches, return an empty array. " +
+                "Respond ONLY with a valid JSON object — no markdown, no explanation. The JSON must contain exactly these fields: " +
                 "\"commands\" (array of strings chosen from the available list), " +
                 "\"consequence\" (string: what happens next in the story), " +
-                "\"dobby_dialogue\" (string: what Dobby the character says), " +
+                "\"dobby_dialogue\" (string: a short line of in-world narration), " +
                 "\"mood\" (string: exactly one of joyful/scared/curious/mysterious/calm/excited/sad).";
 
             string responseText = await SendPromptAsync(prompt);

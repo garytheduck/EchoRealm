@@ -22,10 +22,13 @@ namespace EchoRealm.Film
         [SerializeField] private ActManager actManager;
 
         [Header("Act 2 Timing")]
-        [Tooltip("Minimum voice commands before Act 2 can end.")]
-        [SerializeField] private int minVoiceCommands = 5;
-        [Tooltip("Maximum time (seconds) for Act 2 before auto-advancing.")]
-        [SerializeField] private float act2MaxDuration = 180f;
+        [Tooltip("Minimum voice commands (pooled across BOTH headsets) before Act 2 can end. Higher = the " +
+                 "AI gathers more input before choosing the branch. NOTE: the value saved on the FilmDirector " +
+                 "in the scene wins over this default — change it in the Inspector too.")]
+        [SerializeField] private int minVoiceCommands = 10;
+        [Tooltip("Max seconds for Act 2 before auto-advancing even if minVoiceCommands wasn't reached. " +
+                 "Raise this so there's actually time to collect that many commands.")]
+        [SerializeField] private float act2MaxDuration = 300f;
 
         [Header("End Screen")]
         [Tooltip("GameObject to activate when the film ends (fade-out panel, credits, etc.).")]
