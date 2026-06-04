@@ -236,16 +236,21 @@ namespace EchoRealm.AI
             LastRecognizedText = text;
             OnSpeechRecognized?.Invoke(text);
 
-            // Meta-commands handled locally — these must work even while the scene is paused
-            // (Time.timeScale = 0), so they bypass the AI/network pipeline. Check "unpocket" first.
+            // Meta-commands handled locally (pocket / unpocket the whole scene) — they bypass the
+            // AI/network command pipeline. The speech recognizer often splits "unpocket" into
+            // "un pocket", so match several forms; "restore"/"resume" also work as clear unpocket words.
             string meta = text.ToLowerInvariant();
-            if (meta.Contains("unpocket"))
+            bool wantsUnpocket = meta.Contains("unpocket") || meta.Contains("un pocket")
+                                 || meta.Contains("restore") || meta.Contains("resume");
+            if (wantsUnpocket)
             {
+                Log($"Meta-command UNPOCKET (heard: '{text}')");
                 EchoRealm.Interaction.WorldPocket.Instance?.Unpocket();
                 return;
             }
             if (meta.Contains("pocket"))
             {
+                Log($"Meta-command POCKET (heard: '{text}')");
                 EchoRealm.Interaction.WorldPocket.Instance?.Pocket();
                 return;
             }
