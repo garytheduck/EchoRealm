@@ -40,5 +40,11 @@ namespace EchoRealm.AI
             string userSpeech,
             string sceneState,
             string[] availableCommands);
+
+        /// <summary>
+        /// Parse a spoken request into a single object manipulation (scale/move/rotate/reset)
+        /// for the object the user is looking at. Returns null on failure or if unsupported.
+        /// </summary>
+        Task<AIObjectOp> SendObjectOpAsync(string phrase, string objectContext);
     }
 }

@@ -178,6 +178,29 @@ namespace EchoRealm.AI
             return null;
         }
 
+        /// <summary>
+        /// Parse a spoken object manipulation (for the gazed-at object). Primary → fallback.
+        /// </summary>
+        public async Task<AIObjectOp> SendObjectOpAsync(string phrase, string objectContext)
+        {
+            var (primary, fallback) = GetBackendPair();
+
+            if (primary != null && CanUse(primary))
+            {
+                var result = await primary.SendObjectOpAsync(phrase, objectContext);
+                if (result != null) { ActiveBackendName = primary.BackendName; return result; }
+                LogFallback(primary.BackendName, "SendObjectOpAsync returned null");
+            }
+            if (fallback != null && CanUse(fallback))
+            {
+                var result = await fallback.SendObjectOpAsync(phrase, objectContext);
+                if (result != null) { ActiveBackendName = fallback.BackendName; return result; }
+            }
+
+            Debug.LogWarning("[AIManager] All backends failed for SendObjectOpAsync.");
+            return null;
+        }
+
         // ------------------------------------------------------------------
         // Helpers
         // ------------------------------------------------------------------
@@ -274,5 +297,9 @@ namespace EchoRealm.AI
         public Task<AICommandResponse> SendCommandRequestAsync(
             string userSpeech, string sceneState, string[] availableCommands)
             => _client.SendCommandRequestAsync(userSpeech, sceneState, availableCommands);
+
+        // Object manipulation is a Claude-only feature; Ollama opts out.
+        public Task<AIObjectOp> SendObjectOpAsync(string phrase, string objectContext)
+            => Task.FromResult<AIObjectOp>(null);
     }
 }

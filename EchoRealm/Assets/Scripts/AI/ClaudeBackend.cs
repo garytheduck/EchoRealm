@@ -181,6 +181,31 @@ namespace EchoRealm.AI
             }
         }
 
+        /// <inheritdoc/>
+        public async Task<AIObjectOp> SendObjectOpAsync(string phrase, string objectContext)
+        {
+            if (!IsKeyConfigured()) return null;
+
+            string prompt =
+                "Translate a short spoken request into ONE manipulation of a single 3D object the user is looking at. " +
+                $"Object: {objectContext}. User said: \"{phrase}\". " +
+                "Respond ONLY with JSON (no markdown): " +
+                "{\"action\":\"scale|move|rotate|reset\",\"direction\":\"bigger|smaller|left|right|up|down|closer|farther|none\",\"magnitude\":\"small|medium|large\"}. " +
+                "Rules: bigger/smaller -> scale. move/push/pull/bring with a direction -> move (closer=toward me, farther=away). " +
+                "turn/rotate/spin -> rotate (direction left or right). put it back/reset/undo/original -> reset. " +
+                "Magnitude: 'a bit'/'a little'/'slightly' -> small; 'a lot'/'much'/'way'/'huge' -> large; otherwise medium.";
+
+            string raw = await SendPromptAsync(prompt);
+            if (string.IsNullOrEmpty(raw)) return null;
+            raw = StripCodeFences(raw);
+            try { return JsonUtility.FromJson<AIObjectOp>(raw); }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[Claude] Failed to parse AIObjectOp: {ex.Message}\nRaw: {raw}");
+                return null;
+            }
+        }
+
         // ------------------------------------------------------------------
         // HTTP
         // ------------------------------------------------------------------
