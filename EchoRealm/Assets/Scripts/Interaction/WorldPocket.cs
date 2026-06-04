@@ -30,6 +30,9 @@ namespace EchoRealm.Interaction
         private Quaternion _savedRot = Quaternion.identity;
         private bool _hasSaved;
 
+        // True on the device that TRIGGERED this pocket — it gets the floating Resume button.
+        private bool _iInitiated;
+
         [Header("Debug")]
         [SerializeField] private bool logEvents = true;
 
@@ -51,6 +54,9 @@ namespace EchoRealm.Interaction
                 var go = GameObject.Find("SceneRoot");
                 if (go != null) sceneRoot = go.transform;
             }
+
+            // Ensure a Resume button exists (on this persistent object, NOT under SceneRoot).
+            if (ResumeButton.Instance == null) gameObject.AddComponent<ResumeButton>();
         }
 
         private void Update()
@@ -75,6 +81,7 @@ namespace EchoRealm.Interaction
         public void Pocket()
         {
             if (IsPocketed) return;
+            _iInitiated = true; // this device put the world away → it gets the floating Resume button
             var sync = Networking.FilmSync.Instance;
             if (sync != null) sync.RequestPocket(true);
             else ApplyPocket();
@@ -102,7 +109,11 @@ namespace EchoRealm.Interaction
             // NOTE: deliberately NOT using Time.timeScale = 0 — that also freezes Photon Fusion,
             // which would block the networked "unpocket" from ever arriving. The film is paused via
             // hiding SceneRoot + FilmDirector's pocket gate instead, so networking stays alive.
-            if (logEvents) Debug.Log("[WorldPocket] Pocketed — world hidden & film paused for all. Say 'unpocket scene' to resume.");
+
+            // Show the floating Resume button ONLY on the device that pocketed it.
+            if (_iInitiated) ResumeButton.Instance?.Show();
+
+            if (logEvents) Debug.Log("[WorldPocket] Pocketed — world hidden & film paused for all. Say 'resume' or tap Resume.");
         }
 
         /// <summary>Local effect (runs on EVERY headset): restore the world where it was, resume time.</summary>
@@ -117,6 +128,8 @@ namespace EchoRealm.Interaction
                 sceneRoot.rotation   = _savedRot;
             }
             IsPocketed = false;
+            _iInitiated = false;
+            ResumeButton.Instance?.Hide();
             if (logEvents) Debug.Log("[WorldPocket] Unpocketed — world restored & film resumed.");
         }
     }
