@@ -91,26 +91,67 @@ namespace EchoRealm.Networking
         // Shared world transform — master publishes, clients follow (co-located via the QR anchor)
         // ------------------------------------------------------------------
 
-        // Master: publish the SceneRoot's QR-relative pose + uniform scale when it changes.
+        // Master only: when the MASTER is the one grabbing the world, write the networked truth from
+        // its own SceneRoot. A client's grab arrives via RPC_PushSceneTransform instead.
         public override void FixedUpdateNetwork()
         {
             if (!syncSceneTransform || !HasStateAuthority) return;
             if (IsPocketed) return;            // the pocket owns the transform while hidden
             if (!TryGetSceneRefs()) return;
-            PublishSceneTransform(force: false);
+            if (IsLocallyManipulating())
+                PublishSceneTransform(force: false);
         }
 
-        // Clients: apply the master's QR-relative pose + scale to their own co-located SceneRoot.
+        // Every device: whoever is grabbing the world drives it (and a client streams it to the
+        // master); everyone else follows the networked value so all headsets see the same size/place.
         public override void Render()
         {
-            if (!syncSceneTransform || HasStateAuthority) return; // master is the source of truth
+            if (!syncSceneTransform) return;
             if (IsPocketed) return;
-            if (SceneScale <= 0f) return;       // master hasn't published yet
             if (!TryGetSceneRefs()) return;
 
+            if (IsLocallyManipulating())
+            {
+                // I'm the source. The master already wrote it in FixedUpdateNetwork; a client streams
+                // its transform up to the master (throttled). Either way, don't follow the network here.
+                if (!HasStateAuthority) MaybePushToMaster();
+                return;
+            }
+
+            if (SceneScale <= 0f) return;       // nothing published yet
             _sceneRoot.position   = _anchor.AnchorPosition + _anchor.AnchorRotation * SceneRelPos;
             _sceneRoot.rotation   = _anchor.AnchorRotation * SceneRelRot;
             _sceneRoot.localScale = new Vector3(SceneScale, SceneScale, SceneScale);
+        }
+
+        private static bool IsLocallyManipulating()
+            => Interaction.SceneManipulationReporter.Instance != null
+               && Interaction.SceneManipulationReporter.Instance.IsManipulating;
+
+        // Client: stream the grabbed world's QR-relative transform to the master at ~20 Hz.
+        private float _pushTimer;
+        private void MaybePushToMaster()
+        {
+            _pushTimer += Time.unscaledDeltaTime;
+            if (_pushTimer < 0.05f) return;
+            _pushTimer = 0f;
+
+            Quaternion invAnchor = Quaternion.Inverse(_anchor.AnchorRotation);
+            Vector3 relPos = invAnchor * (_sceneRoot.position - _anchor.AnchorPosition);
+            Quaternion relRot = invAnchor * _sceneRoot.rotation;
+            float scale = _sceneRoot.localScale.x;
+            if (scale <= 0f) scale = 0.0001f;
+            RPC_PushSceneTransform(relPos, relRot, scale);
+        }
+
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+        private void RPC_PushSceneTransform(Vector3 relPos, Quaternion relRot, float scale)
+        {
+            // A client is grabbing the world; the master adopts its transform as the shared truth,
+            // which then replicates to every device (including the master's own Render → it follows).
+            SceneRelPos = relPos;
+            SceneRelRot = relRot;
+            SceneScale  = scale;
         }
 
         private bool TryGetSceneRefs()
