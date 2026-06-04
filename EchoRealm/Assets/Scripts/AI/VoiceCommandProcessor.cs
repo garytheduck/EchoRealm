@@ -314,6 +314,18 @@ namespace EchoRealm.AI
                 return;
             }
 
+            // "Claude, ..." → manipulate the object I'm looking at (gaze-targeted). Matched only at the
+            // START of the phrase (accept the common "cloud" mishearing there) so "cloud" still works
+            // later in the sentence as an object word.
+            string lead = meta.TrimStart();
+            bool addressed = lead.StartsWith("claude") || lead.StartsWith("claud")
+                          || lead.StartsWith("cloud")  || lead.StartsWith("clyde") || lead.StartsWith("klaus");
+            if (addressed)
+            {
+                await HandleObjectCommand(text);
+                return;
+            }
+
             // Networked path: hand the speech to the master via FilmSync. The master
             // interprets it (AI), pools it into the combined behavior profile, and
             // broadcasts the resulting world commands to every headset.
@@ -357,6 +369,67 @@ namespace EchoRealm.AI
             {
                 Log("AI returned null response.", isWarning: true);
             }
+        }
+
+        /// <summary>
+        /// "Claude, …" object manipulation. Runs on the SPEAKING device: resolves the gazed-at prop,
+        /// asks Claude for the op, converts the egocentric direction to a frame-independent op, and
+        /// submits it through FilmSync so it applies on every headset.
+        /// </summary>
+        private async System.Threading.Tasks.Task HandleObjectCommand(string text)
+        {
+            var reg = EchoRealm.Interaction.ManipulableRegistry.Instance;
+            var eyes = EchoRealm.Interaction.EyeTrackingManager.Instance;
+            var mo = (reg != null && eyes != null) ? reg.Resolve(eyes.CurrentTarget) : null;
+            if (mo == null)
+            {
+                Log("Claude (object): you're not looking at a manipulable object — ignored.");
+                return;
+            }
+
+            if (aiManager == null || !aiManager.IsReachable)
+            {
+                Log("Claude (object): AI backend unavailable.", isWarning: true);
+                return;
+            }
+
+            var op = await aiManager.SendObjectOpAsync(text, mo.Context());
+            if (op == null || string.IsNullOrEmpty(op.action))
+            {
+                Log("Claude (object): no operation parsed.", isWarning: true);
+                return;
+            }
+
+            var cam = Camera.main != null ? Camera.main.transform : null;
+
+            int opType;
+            float factor = 1f, degrees = 0f;
+            Vector3 delta = Vector3.zero;
+            switch (op.action)
+            {
+                case "scale":
+                    opType = (int)EchoRealm.Interaction.ObjOpType.Scale;
+                    factor = EchoRealm.Interaction.ObjectOpMath.ScaleFactor(op.direction, op.magnitude);
+                    break;
+                case "move":
+                    opType = (int)EchoRealm.Interaction.ObjOpType.Move;
+                    delta = EchoRealm.Interaction.ObjectOpMath.MoveDelta(cam, mo.transform, op.direction, op.magnitude);
+                    break;
+                case "rotate":
+                    opType = (int)EchoRealm.Interaction.ObjOpType.Rotate;
+                    degrees = EchoRealm.Interaction.ObjectOpMath.YawDegrees(op.direction, op.magnitude);
+                    break;
+                case "reset":
+                    opType = (int)EchoRealm.Interaction.ObjOpType.Reset;
+                    break;
+                default:
+                    Log($"Claude (object): unknown action '{op.action}'.", isWarning: true);
+                    return;
+            }
+
+            Log($"Claude (object): {op.action}/{op.direction}/{op.magnitude} on '{mo.Id}'.");
+            var sync = EchoRealm.Networking.FilmSync.Instance;
+            if (sync != null) sync.SubmitObjectOp(mo.Id, opType, factor, delta, degrees);
         }
 
         /// <summary>
