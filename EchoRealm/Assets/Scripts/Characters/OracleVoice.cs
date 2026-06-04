@@ -29,8 +29,6 @@ namespace EchoRealm.Characters
         [Range(0.5f, 2f)] [SerializeField] private float voicePitch = 0.95f;
         [Tooltip("Prefer a male voice for the priest Oracle (if one is installed on the device).")]
         [SerializeField] private bool preferMaleVoice = true;
-        [Tooltip("Optional: force a specific installed voice by part of its name (e.g. 'David', 'Mark', 'George'). Blank = auto-pick an English male voice.")]
-        [SerializeField] private string voiceNameContains = "";
         [Tooltip("0 = always crystal-clear (2D); 1 = fully positional (from the priest). Clarity-first default is low.")]
         [Range(0f, 1f)] [SerializeField] private float spatialBlend = 0.15f;
 
@@ -82,13 +80,6 @@ namespace EchoRealm.Characters
         private VoiceInformation PickVoice()
         {
             var voices = SpeechSynthesizer.AllVoices;
-
-            // 0) explicit name override (e.g. "David", "Mark", "George")
-            if (!string.IsNullOrEmpty(voiceNameContains))
-                foreach (var v in voices)
-                    if (v.DisplayName != null &&
-                        v.DisplayName.ToLowerInvariant().Contains(voiceNameContains.ToLowerInvariant()))
-                        return v;
 
             // 1) English + male (the grave priest-oracle vibe)
             foreach (var v in voices)
