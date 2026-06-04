@@ -1,3 +1,6 @@
+// CS0414: speakingRate/voicePitch/preferMaleVoice are read only in WINDOWS_UWP (device) builds,
+// so they appear "unused" when compiling for the Editor. Suppress that Editor-only warning.
+#pragma warning disable CS0414
 using UnityEngine;
 #if WINDOWS_UWP
 using System;
