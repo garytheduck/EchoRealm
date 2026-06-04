@@ -98,16 +98,17 @@ namespace EchoRealm.Interaction
             _hasSaved   = true;
 
             IsPocketed = true;
-            sceneRoot.gameObject.SetActive(false);
-            Time.timeScale = 0f;
-            if (logEvents) Debug.Log("[WorldPocket] Pocketed — scene PAUSED for all. Say 'unpocket scene' to resume.");
+            sceneRoot.gameObject.SetActive(false); // hides all world visuals/characters/effects (they stop updating)
+            // NOTE: deliberately NOT using Time.timeScale = 0 — that also freezes Photon Fusion,
+            // which would block the networked "unpocket" from ever arriving. The film is paused via
+            // hiding SceneRoot + FilmDirector's pocket gate instead, so networking stays alive.
+            if (logEvents) Debug.Log("[WorldPocket] Pocketed — world hidden & film paused for all. Say 'unpocket scene' to resume.");
         }
 
         /// <summary>Local effect (runs on EVERY headset): restore the world where it was, resume time.</summary>
         public void ApplyUnpocket()
         {
             if (!IsPocketed || sceneRoot == null) return;
-            Time.timeScale = 1f;
             sceneRoot.gameObject.SetActive(true);
             if (_hasSaved)
             {
@@ -116,7 +117,7 @@ namespace EchoRealm.Interaction
                 sceneRoot.rotation   = _savedRot;
             }
             IsPocketed = false;
-            if (logEvents) Debug.Log("[WorldPocket] Unpocketed — scene RESUMED.");
+            if (logEvents) Debug.Log("[WorldPocket] Unpocketed — world restored & film resumed.");
         }
     }
 }

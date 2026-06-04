@@ -90,6 +90,10 @@ namespace EchoRealm.Film
         {
             if (!IsMaster) return; // only the master advances the film
 
+            // Pause the film's progression while the world is pocketed (networking stays live).
+            if (EchoRealm.Interaction.WorldPocket.Instance != null &&
+                EchoRealm.Interaction.WorldPocket.Instance.IsPocketed) return;
+
             // Monitor Act 2 completion criteria using the COMBINED behavior profile
             // (the master pools every headset's voice commands into ActionCollector).
             if (act2Active)
