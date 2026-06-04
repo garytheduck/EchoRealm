@@ -259,7 +259,10 @@ namespace EchoRealm.AI
             // "un pocket", so match several forms; "restore"/"resume" also work as clear unpocket words.
             string meta = text.ToLowerInvariant();
             bool wantsUnpocket = meta.Contains("unpocket") || meta.Contains("un pocket")
-                                 || meta.Contains("restore") || meta.Contains("resume");
+                                 || meta.Contains("unproket") || meta.Contains("unprocket") || meta.Contains("unfrocket")
+                                 || meta.Contains("restor")    // matches "restore" AND "restoration"
+                                 || meta.Contains("resume")
+                                 || meta.Contains("bring back") || meta.Contains("come back");
             if (wantsUnpocket)
             {
                 Log($"Meta-command UNPOCKET (heard: '{text}')");
