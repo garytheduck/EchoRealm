@@ -18,6 +18,7 @@
 - Actions: **scale**, **move**, **rotate**, **reset**.
 - **Claude infers magnitude** from natural language ("a bit", "a lot", "a little more") → clamped.
 - Manipulation is **networked + co-located** (both headsets see it on the same object).
+- **Comprehensive late-join sync** — a device joining at any time inherits the *full* modified world (global commands + per-object manipulations + future generated objects); nothing auto-resets.
 
 **Out (later):**
 - Spoken spatial references ("the cloud above me", "the bush on my right") → **Tier B**.
@@ -114,13 +115,19 @@ Because the op is expressed in **SceneRoot-local, frame-independent terms** and 
 - New op message carries: `objectId` (string), `opType` (0 scale / 1 move / 2 rotate / 3 reset), and a compact payload (`float factor`, `Vector3 localDelta`, `float degrees`).
 - The **speaker** converts the egocentric direction to a **SceneRoot-local** vector before submitting (so "my right" becomes a fixed SceneRoot-local direction that every device applies identically).
 - Flow mirrors the existing command path: `SubmitObjectOp` → master applies + `RPC_ApplyObjectOp(All)`; clients route via `RPC_SubmitObjectOp(StateAuthority)`. `RpcSources.All → RpcTargets.StateAuthority` is the sanctioned shared-mode pattern (already used for speech/interaction/pocket).
-- **Late join (should):** the master keeps the **current local transform** of each manipulated object and sends them to a late joiner (idempotent — just set the transform), so a latecomer sees the manipulated world too. Reuses the `Spawned()` catch-up hook.
+- **Late join (REQUIRED, comprehensive):** the master holds the authoritative current world state and replays ALL of it to any device that joins at any time:
+  - (a) the **global-command log** (extends the existing `WorldStateCsv` replay),
+  - (b) the **current local transform** of every manipulated object,
+  - (c) **generated-object descriptors** when that feature lands.
+  Object state is synced as **absolute** local transforms, which are **idempotent** (re-applying on a peer that already has them is a no-op), so it can be broadcast safely; chunk if it exceeds Fusion's RPC size limit. The latecomer arrives into the identical co-located world — nothing missing.
+- **No automatic resets:** act transitions, pocket/unpocket, and late-join all PRESERVE every world change and manipulation.
 
 ---
 
 ## 8. Safety & limits
 
-- Each `ManipulableObject` records its **original** local scale/position/rotation at startup → "reset" restores it; nothing is permanently lost during a demo.
+- Each `ManipulableObject` records its **original** local scale/position/rotation at startup. This serves two roles: the clamp reference (Section 6) and the target of the **manual-only** "Claude, reset this" command.
+- **Reset is manual-only — nothing auto-reverts.** Act transitions, pocket/unpocket, and late-join all preserve manipulations; the world only reverts when the user explicitly says "reset this" on the object they're looking at.
 - Clamps (Section 6) prevent objects from vanishing, exploding, or flying away.
 - Object-ops are **not** fed into the narrative AI's nurture/chaos profile (they're direct utility, not story-shaping) — but **may be logged** for the user study (see Future).
 
@@ -143,7 +150,8 @@ Because the op is expressed in **SceneRoot-local, frame-independent terms** and 
 3. The same commands initiated **from the client** also affect both.
 4. A **protected** object (Oracle/HeartStone/Astronaut/portal) does **not** respond.
 5. "Claude, …" while **not** looking at a manipulable prop → gentle no-op message.
-6. Clamps hold (can't shrink to nothing or fling a prop away); "reset" returns it exactly.
+6. Clamps hold (can't shrink to nothing or fling a prop away); "reset this" returns it exactly.
+7. **Late join:** with several props already manipulated AND weather changed, a client that connects *afterwards* comes up showing the same modified, co-located world — nothing reset.
 
 ---
 
