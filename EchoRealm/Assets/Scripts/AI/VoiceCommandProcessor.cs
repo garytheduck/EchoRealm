@@ -238,7 +238,17 @@ namespace EchoRealm.AI
         {
             string h = args.Hypothesis != null ? args.Hypothesis.Text : null;
             if (string.IsNullOrEmpty(h)) return;
-            UnityEngine.WSA.Application.InvokeOnAppThread(() => Log($"Speech hypothesis (hearing you): '{h}'"), false);
+            UnityEngine.WSA.Application.InvokeOnAppThread(() =>
+            {
+                Log($"Speech hypothesis (hearing you): '{h}'");
+                // While pocketed, resume on the FIRST partial word — don't wait for a final result.
+                var pocket = EchoRealm.Interaction.WorldPocket.Instance;
+                if (pocket != null && pocket.IsPocketed)
+                {
+                    Log($"Pocketed — resuming on hypothesis '{h}'.");
+                    pocket.Unpocket();
+                }
+            }, false);
         }
 #endif
 
@@ -258,6 +268,17 @@ namespace EchoRealm.AI
             // AI/network command pipeline. The speech recognizer often splits "unpocket" into
             // "un pocket", so match several forms; "restore"/"resume" also work as clear unpocket words.
             string meta = text.ToLowerInvariant();
+
+            // While the world is pocketed, the ONLY sensible intent is to bring it back. The recognizer
+            // is finicky (a clean "resume" often never finalizes), so be maximally forgiving: ANY
+            // recognized speech resumes. Unpocket is networked, so this resumes every headset.
+            var pocket = EchoRealm.Interaction.WorldPocket.Instance;
+            if (pocket != null && pocket.IsPocketed)
+            {
+                Log($"World is pocketed — resuming on speech (heard: '{text}').");
+                pocket.Unpocket();
+                return;
+            }
 
             // "START" — only meaningful BEFORE the film begins. Once the film is playing we let it
             // through as a normal command (so "start a fire" still works). When heard pre-film it
