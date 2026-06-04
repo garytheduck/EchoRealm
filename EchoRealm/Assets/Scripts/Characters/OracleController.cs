@@ -38,6 +38,9 @@ namespace EchoRealm.Characters
         [SerializeField] private float dialogueDisplayTime = 6f;
         [SerializeField] private bool billboardDialogue = true;
 
+        [Tooltip("Optional — speaks lines aloud via Windows TTS on device (auto-found if on the same object).")]
+        [SerializeField] private OracleVoice voice;
+
         [Header("Pulse Settings")]
         [SerializeField] private float idlePulseSpeed = 1f;
         [SerializeField] private float speakingPulseSpeed = 3f;
@@ -87,6 +90,8 @@ namespace EchoRealm.Characters
                 sphereMaterial = sphereRenderer.material;
             }
 
+            if (voice == null) voice = GetComponent<OracleVoice>();
+
             targetColor = mysteriousColor;
             currentPulseSpeed = idlePulseSpeed;
             HideDialogue();
@@ -113,6 +118,7 @@ namespace EchoRealm.Characters
         public void Speak(string text)
         {
             ShowDialogue(text);
+            if (voice != null) voice.Speak(text);
             currentPulseSpeed = speakingPulseSpeed;
             Log($"Oracle speaks: \"{text}\"");
         }
@@ -123,6 +129,7 @@ namespace EchoRealm.Characters
         /// </summary>
         public void SpeakDramatic(string text, float wordsPerSecond = 3f)
         {
+            if (voice != null) voice.Speak(text);
             StartCoroutine(DramaticSpeechCoroutine(text, wordsPerSecond));
         }
 
