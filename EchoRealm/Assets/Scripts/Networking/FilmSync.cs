@@ -32,6 +32,9 @@ namespace EchoRealm.Networking
         [Networked] public Quaternion SceneRelRot { get; set; }
         [Networked] public float SceneScale { get; set; }
 
+        // Cumulative world-state snapshot (rain, grown trees, day/night, ...) for late joiners to replay.
+        [Networked] public NetworkString<_512> WorldStateCsv { get; set; }
+
         [Header("Shared world transform")]
         [Tooltip("If true, the master's world scale/move is synced to every headset (co-located via the QR). " +
                  "Uncheck on the FilmSync prefab to make scaling/moving the world purely local again.")]
@@ -43,6 +46,10 @@ namespace EchoRealm.Networking
         private Vector3 _lastPubPos;
         private Quaternion _lastPubRot = Quaternion.identity;
         private float _lastPubScale = -1f;
+
+        // Master-side log of every world command issued, replayed to late joiners via WorldStateCsv.
+        private readonly System.Collections.Generic.List<string> _worldCommandLog = new System.Collections.Generic.List<string>();
+        private const int MaxWorldStateChars = 480; // headroom under NetworkString<_512>
 
         public override void Spawned()
         {
@@ -69,6 +76,10 @@ namespace EchoRealm.Networking
             // have a valid value to apply (a [Networked] Quaternion/scale defaults to zero otherwise).
             if (HasStateAuthority && syncSceneTransform && TryGetSceneRefs())
                 PublishSceneTransform(force: true);
+
+            // Late join: replay the world changes the master already made (rain, grown trees, ...).
+            // Spawned runs once on THIS joining device; peers already here don't re-run it → no double-apply.
+            if (!HasStateAuthority) ApplyWorldStateSnapshot();
         }
 
         public override void Despawned(NetworkRunner runner, bool hasState)
@@ -224,10 +235,12 @@ namespace EchoRealm.Networking
             }
         }
 
-        /// <summary>Master only: tell every device to execute these commands.</summary>
+        /// <summary>Master only: tell every device to execute these commands, and fold them into the
+        /// cumulative world-state snapshot so a late joiner can replay them on connect.</summary>
         public void BroadcastCommands(string[] commands)
         {
             if (!HasStateAuthority || commands == null || commands.Length == 0) return;
+            RecordAndPublishWorldState(commands);
             RPC_ApplyCommands(string.Join(",", commands));
         }
 
@@ -237,6 +250,46 @@ namespace EchoRealm.Networking
             var exec = CommandExecutor.Instance;
             if (exec == null || string.IsNullOrEmpty(commandsCsv)) return;
             foreach (var raw in commandsCsv.Split(','))
+            {
+                string cmd = raw.Trim();
+                if (cmd.Length > 0) exec.ExecuteCommand(cmd);
+            }
+        }
+
+        // Master: append commands to the log and republish the capped snapshot to networked state.
+        private void RecordAndPublishWorldState(string[] commands)
+        {
+            foreach (var c in commands)
+            {
+                var t = c?.Trim();
+                if (!string.IsNullOrEmpty(t)) _worldCommandLog.Add(t);
+            }
+
+            // Keep the most RECENT commands that fit the networked string (drop oldest if over cap).
+            int start = 0;
+            string csv = string.Join(",", _worldCommandLog);
+            while (csv.Length > MaxWorldStateChars && start < _worldCommandLog.Count - 1)
+            {
+                start++;
+                csv = string.Join(",", _worldCommandLog.GetRange(start, _worldCommandLog.Count - start));
+            }
+            if (start > 0)
+                Debug.LogWarning($"[FilmSync] World-state snapshot truncated to the last " +
+                                 $"{_worldCommandLog.Count - start} of {_worldCommandLog.Count} commands (NetworkString cap).");
+
+            WorldStateCsv = csv;
+        }
+
+        // Late joiner only: replay the master's cumulative world state onto our freshly co-located scene.
+        private void ApplyWorldStateSnapshot()
+        {
+            string csv = WorldStateCsv.ToString();
+            if (string.IsNullOrEmpty(csv)) return;
+            var exec = CommandExecutor.Instance;
+            if (exec == null) return;
+
+            Debug.Log($"[FilmSync] Late join — replaying world state: {csv}");
+            foreach (var raw in csv.Split(','))
             {
                 string cmd = raw.Trim();
                 if (cmd.Length > 0) exec.ExecuteCommand(cmd);
