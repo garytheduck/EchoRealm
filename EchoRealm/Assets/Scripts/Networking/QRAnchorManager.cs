@@ -52,6 +52,13 @@ namespace EchoRealm.Networking
         /// <summary>The shared anchor transform. All co-located content must be a child of this.</summary>
         public Transform SceneRoot => sceneRoot;
 
+        /// <summary>World pose the SceneRoot was aligned to (the QR pose). The shared world transform
+        /// is synced RELATIVE to this so co-location holds across devices (each headset has its own
+        /// world origin, so raw world coordinates differ even at the same physical QR). In the Editor
+        /// it's the SceneRoot's authored pose.</summary>
+        public Vector3 AnchorPosition { get; private set; }
+        public Quaternion AnchorRotation { get; private set; } = Quaternion.identity;
+
 #if WINDOWS_UWP
         private ARMarkerManager markerManager;
 #endif
@@ -72,9 +79,11 @@ namespace EchoRealm.Networking
 #if WINDOWS_UWP
             StartQRTracking();
 #else
-            // In Unity Editor (play mode), simulate anchor at origin
-            Log("Running in Editor — simulating QR anchor at world origin.");
+            // In Unity Editor (play mode), simulate anchor at the SceneRoot's authored pose
+            Log("Running in Editor — simulating QR anchor at the SceneRoot's current pose.");
             IsAnchored = true;
+            AnchorPosition = sceneRoot.position;
+            AnchorRotation = sceneRoot.rotation;
             OnAnchorEstablished?.Invoke();
 #endif
         }
@@ -153,6 +162,8 @@ namespace EchoRealm.Networking
 
             sceneRoot.position = qrPosition;
             sceneRoot.rotation = qrRotation;
+            AnchorPosition = qrPosition;
+            AnchorRotation = qrRotation;
 
             IsAnchored = true;
             OnAnchorEstablished?.Invoke();

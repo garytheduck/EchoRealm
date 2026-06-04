@@ -26,6 +26,24 @@ namespace EchoRealm.Networking
         [Networked] public NetworkString<_16> ChosenVariant { get; set; }
         [Networked] public bool IsPocketed { get; set; }
 
+        // Shared world transform (master-driven). Synced RELATIVE to the QR anchor pose so it stays
+        // co-located on every device. SceneScale is the absolute uniform scale; 0 = not published yet.
+        [Networked] public Vector3 SceneRelPos { get; set; }
+        [Networked] public Quaternion SceneRelRot { get; set; }
+        [Networked] public float SceneScale { get; set; }
+
+        [Header("Shared world transform")]
+        [Tooltip("If true, the master's world scale/move is synced to every headset (co-located via the QR). " +
+                 "Uncheck on the FilmSync prefab to make scaling/moving the world purely local again.")]
+        [SerializeField] private bool syncSceneTransform = true;
+
+        // Cached refs + last-published values (master) to avoid spamming networked writes.
+        private Transform _sceneRoot;
+        private QRAnchorManager _anchor;
+        private Vector3 _lastPubPos;
+        private Quaternion _lastPubRot = Quaternion.identity;
+        private float _lastPubScale = -1f;
+
         public override void Spawned()
         {
             Instance = this;
@@ -46,11 +64,75 @@ namespace EchoRealm.Networking
 
             // Late join while the world is pocketed: come up paused too.
             if (IsPocketed) WorldPocket.Instance?.ApplyPocket();
+
+            // Master seeds the shared world transform from the scene's current pose/scale so clients
+            // have a valid value to apply (a [Networked] Quaternion/scale defaults to zero otherwise).
+            if (HasStateAuthority && syncSceneTransform && TryGetSceneRefs())
+                PublishSceneTransform(force: true);
         }
 
         public override void Despawned(NetworkRunner runner, bool hasState)
         {
             if (Instance == this) Instance = null;
+        }
+
+        // ------------------------------------------------------------------
+        // Shared world transform — master publishes, clients follow (co-located via the QR anchor)
+        // ------------------------------------------------------------------
+
+        // Master: publish the SceneRoot's QR-relative pose + uniform scale when it changes.
+        public override void FixedUpdateNetwork()
+        {
+            if (!syncSceneTransform || !HasStateAuthority) return;
+            if (IsPocketed) return;            // the pocket owns the transform while hidden
+            if (!TryGetSceneRefs()) return;
+            PublishSceneTransform(force: false);
+        }
+
+        // Clients: apply the master's QR-relative pose + scale to their own co-located SceneRoot.
+        public override void Render()
+        {
+            if (!syncSceneTransform || HasStateAuthority) return; // master is the source of truth
+            if (IsPocketed) return;
+            if (SceneScale <= 0f) return;       // master hasn't published yet
+            if (!TryGetSceneRefs()) return;
+
+            _sceneRoot.position   = _anchor.AnchorPosition + _anchor.AnchorRotation * SceneRelPos;
+            _sceneRoot.rotation   = _anchor.AnchorRotation * SceneRelRot;
+            _sceneRoot.localScale = new Vector3(SceneScale, SceneScale, SceneScale);
+        }
+
+        private bool TryGetSceneRefs()
+        {
+            if (_anchor == null) _anchor = QRAnchorManager.Instance;
+            if (_anchor == null) return false;
+            if (_sceneRoot == null) _sceneRoot = _anchor.SceneRoot;
+            return _sceneRoot != null;
+        }
+
+        // Express the SceneRoot's world pose relative to the QR anchor (frame-independent) and write
+        // it to networked state. Relative-to-anchor is what keeps it co-located: each device composes
+        // the same relative offset with ITS OWN physical QR pose.
+        private void PublishSceneTransform(bool force)
+        {
+            Quaternion invAnchor = Quaternion.Inverse(_anchor.AnchorRotation);
+            Vector3 relPos = invAnchor * (_sceneRoot.position - _anchor.AnchorPosition);
+            Quaternion relRot = invAnchor * _sceneRoot.rotation;
+            float scale = _sceneRoot.localScale.x;
+            if (scale <= 0f) scale = 0.0001f;   // keep the "published" sentinel positive
+
+            bool changed = force
+                || (relPos - _lastPubPos).sqrMagnitude > 1e-8f
+                || Quaternion.Angle(relRot, _lastPubRot) > 0.05f
+                || Mathf.Abs(scale - _lastPubScale) > 1e-5f;
+            if (!changed) return;
+
+            SceneRelPos = relPos;
+            SceneRelRot = relRot;
+            SceneScale  = scale;
+            _lastPubPos = relPos;
+            _lastPubRot = relRot;
+            _lastPubScale = scale;
         }
 
         // ------------------------------------------------------------------
