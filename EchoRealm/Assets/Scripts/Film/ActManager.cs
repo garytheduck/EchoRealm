@@ -75,6 +75,9 @@ namespace EchoRealm.Film
         /// </summary>
         public void StartAct(int actNumber, AI.AINarrativeDecision decision = null)
         {
+            StopAllCoroutines();          // stop any prior act coroutine (e.g. a client's lingering Act 3 wait)
+            DeactivateTrialObstacles();   // clear Act-3 trial visuals on every transition (incl. on clients)
+
             CurrentAct    = actNumber;
             CurrentDecision = decision;
 
@@ -215,6 +218,13 @@ namespace EchoRealm.Film
 
             Log("Act 3 complete.");
             OnActCompleted?.Invoke(3);
+        }
+
+        private void DeactivateTrialObstacles()
+        {
+            if (challengeObstacle != null)         challengeObstacle.SetActive(false);
+            if (obstacleChaoticVariant != null)    obstacleChaoticVariant.SetActive(false);
+            if (obstacleMysteriousVariant != null) obstacleMysteriousVariant.SetActive(false);
         }
 
         /// <summary>Returns the correct obstacle prefab for the given variant key.</summary>
