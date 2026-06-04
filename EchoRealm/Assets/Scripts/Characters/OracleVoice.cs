@@ -29,6 +29,8 @@ namespace EchoRealm.Characters
         [Range(0.5f, 2f)] [SerializeField] private float voicePitch = 0.95f;
         [Tooltip("Prefer a male voice for the priest Oracle (if one is installed on the device).")]
         [SerializeField] private bool preferMaleVoice = true;
+        [Tooltip("Optional: force a specific installed voice by part of its name (e.g. 'David', 'Mark', 'George'). Blank = auto-pick an English male voice.")]
+        [SerializeField] private string voiceNameContains = "";
         [Tooltip("0 = always crystal-clear (2D); 1 = fully positional (from the priest). Clarity-first default is low.")]
         [Range(0f, 1f)] [SerializeField] private float spatialBlend = 0.15f;
 
@@ -67,13 +69,51 @@ namespace EchoRealm.Characters
             {
                 _synth = new SpeechSynthesizer();
                 ApplyOptions();
-                if (preferMaleVoice)
-                {
-                    foreach (var v in SpeechSynthesizer.AllVoices)
-                        if (v.Gender == VoiceGender.Male) { _synth.Voice = v; break; }
-                }
+
+                var chosen = PickVoice();
+                if (chosen != null) _synth.Voice = chosen;
+
+                Debug.Log($"[OracleVoice] Using voice: {_synth.Voice?.DisplayName} ({_synth.Voice?.Language}). " +
+                          $"Installed voices: {AllVoiceNames()}");
             }
             catch (Exception ex) { Debug.LogError($"[OracleVoice] TTS init failed: {ex.Message}"); }
+        }
+
+        private VoiceInformation PickVoice()
+        {
+            var voices = SpeechSynthesizer.AllVoices;
+
+            // 0) explicit name override (e.g. "David", "Mark", "George")
+            if (!string.IsNullOrEmpty(voiceNameContains))
+                foreach (var v in voices)
+                    if (v.DisplayName != null &&
+                        v.DisplayName.ToLowerInvariant().Contains(voiceNameContains.ToLowerInvariant()))
+                        return v;
+
+            // 1) English + male (the grave priest-oracle vibe)
+            foreach (var v in voices)
+                if (IsEnglish(v) && v.Gender == VoiceGender.Male) return v;
+
+            // 2) any English voice (don't let a foreign-accent voice read English)
+            foreach (var v in voices)
+                if (IsEnglish(v)) return v;
+
+            // 3) any male, only if asked
+            if (preferMaleVoice)
+                foreach (var v in voices)
+                    if (v.Gender == VoiceGender.Male) return v;
+
+            return null; // keep the system default
+        }
+
+        private static bool IsEnglish(VoiceInformation v)
+            => v.Language != null && v.Language.StartsWith("en", StringComparison.OrdinalIgnoreCase);
+
+        private static string AllVoiceNames()
+        {
+            var names = new System.Collections.Generic.List<string>();
+            foreach (var v in SpeechSynthesizer.AllVoices) names.Add($"{v.DisplayName} [{v.Language}]");
+            return names.Count > 0 ? string.Join(", ", names) : "(none)";
         }
 
         private void ApplyOptions()
