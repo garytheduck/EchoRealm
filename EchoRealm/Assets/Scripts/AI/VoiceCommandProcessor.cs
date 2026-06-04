@@ -137,6 +137,15 @@ namespace EchoRealm.AI
                     SpeechRecognitionScenario.Dictation, "EchoRealmDictation");
                 speechRecognizer.Constraints.Add(dictationConstraint);
 
+                // Don't let the session die during quiet stretches (e.g. the Act 1 intro).
+                try
+                {
+                    speechRecognizer.Timeouts.InitialSilenceTimeout = TimeSpan.FromSeconds(20);
+                    speechRecognizer.Timeouts.BabbleTimeout = TimeSpan.FromSeconds(0);
+                    speechRecognizer.Timeouts.EndSilenceTimeout = TimeSpan.FromSeconds(2);
+                }
+                catch (Exception tex) { Debug.LogWarning($"[Voice] Could not set speech timeouts: {tex.Message}"); }
+
                 var compileResult = await speechRecognizer.CompileConstraintsAsync();
                 if (compileResult.Status != SpeechRecognitionResultStatus.Success)
                 {
@@ -147,6 +156,7 @@ namespace EchoRealm.AI
                 // Wire up continuous recognition events
                 speechRecognizer.ContinuousRecognitionSession.ResultGenerated += OnSpeechResult;
                 speechRecognizer.ContinuousRecognitionSession.Completed += OnSpeechSessionCompleted;
+                speechRecognizer.HypothesisGenerated += OnSpeechHypothesis;
 
                 Log("Speech recognizer initialized. Ready to listen.");
 
@@ -216,11 +226,19 @@ namespace EchoRealm.AI
             Log($"Speech session completed: {args.Status}");
             IsListening = false;
 
-            if (continuousListening && args.Status == SpeechRecognitionResultStatus.Success)
+            // Restart for ANY completion (including TimeoutExceeded during quiet stretches) — otherwise
+            // the recognizer dies after the first silence timeout and never hears commands again.
+            if (continuousListening)
             {
-                // Restart listening
                 UnityEngine.WSA.Application.InvokeOnAppThread(() => StartListening(), false);
             }
+        }
+
+        private void OnSpeechHypothesis(SpeechRecognizer sender, SpeechRecognitionHypothesisGeneratedEventArgs args)
+        {
+            string h = args.Hypothesis != null ? args.Hypothesis.Text : null;
+            if (string.IsNullOrEmpty(h)) return;
+            UnityEngine.WSA.Application.InvokeOnAppThread(() => Log($"Speech hypothesis (hearing you): '{h}'"), false);
         }
 #endif
 
@@ -316,6 +334,7 @@ namespace EchoRealm.AI
             {
                 speechRecognizer.ContinuousRecognitionSession.ResultGenerated -= OnSpeechResult;
                 speechRecognizer.ContinuousRecognitionSession.Completed -= OnSpeechSessionCompleted;
+                speechRecognizer.HypothesisGenerated -= OnSpeechHypothesis;
                 speechRecognizer.Dispose();
                 speechRecognizer = null;
             }
