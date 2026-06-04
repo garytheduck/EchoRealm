@@ -51,6 +51,12 @@ namespace EchoRealm.Networking
         private readonly System.Collections.Generic.List<string> _worldCommandLog = new System.Collections.Generic.List<string>();
         private const int MaxWorldStateChars = 480; // headroom under NetworkString<_512>
 
+        // Per-object manipulation state (master-authoritative): the current absolute local transform
+        // of every prop touched by a "Claude, …" op, replayed to late joiners (idempotent).
+        private struct ObjState { public Vector3 scale, pos; public Quaternion rot; }
+        private readonly System.Collections.Generic.Dictionary<string, ObjState> _objStates =
+            new System.Collections.Generic.Dictionary<string, ObjState>();
+
         public override void Spawned()
         {
             Instance = this;
@@ -79,7 +85,11 @@ namespace EchoRealm.Networking
 
             // Late join: replay the world changes the master already made (rain, grown trees, ...).
             // Spawned runs once on THIS joining device; peers already here don't re-run it → no double-apply.
-            if (!HasStateAuthority) ApplyWorldStateSnapshot();
+            if (!HasStateAuthority)
+            {
+                ApplyWorldStateSnapshot();
+                RPC_RequestObjectStates(); // ask the master to re-send every manipulated object's transform
+            }
         }
 
         public override void Despawned(NetworkRunner runner, bool hasState)
@@ -335,6 +345,57 @@ namespace EchoRealm.Networking
                 string cmd = raw.Trim();
                 if (cmd.Length > 0) exec.ExecuteCommand(cmd);
             }
+        }
+
+        // ------------------------------------------------------------------
+        // Object manipulation — "Claude, make this bigger" (networked + co-located)
+        // ------------------------------------------------------------------
+
+        /// <summary>Any device submits a resolved object op; the master applies it on EVERY device
+        /// (RpcTargets.All includes the master) and records the resulting absolute transform.</summary>
+        public void SubmitObjectOp(string id, int opType, float factor, Vector3 delta, float degrees)
+        {
+            if (HasStateAuthority) RPC_ApplyObjectOp(id, opType, factor, delta, degrees);
+            else RPC_SubmitObjectOp(id, opType, factor, delta, degrees);
+        }
+
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+        private void RPC_SubmitObjectOp(string id, int opType, float factor, Vector3 delta, float degrees)
+            => RPC_ApplyObjectOp(id, opType, factor, delta, degrees); // master fans it out to all
+
+        [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+        private void RPC_ApplyObjectOp(string id, int opType, float factor, Vector3 delta, float degrees)
+        {
+            var mo = ManipulableRegistry.Instance?.FindById(id);
+            if (mo == null) return;
+            switch ((ObjOpType)opType)
+            {
+                case ObjOpType.Scale:  mo.ApplyScale(factor); break;
+                case ObjOpType.Move:   mo.ApplyMove(delta);   break;
+                case ObjOpType.Rotate: mo.ApplyYaw(degrees);  break;
+                case ObjOpType.Reset:  mo.ResetTransform();   break;
+            }
+            if (HasStateAuthority) // master remembers the result so late joiners can catch up
+            {
+                mo.GetLocal(out var s, out var p, out var r);
+                _objStates[id] = new ObjState { scale = s, pos = p, rot = r };
+            }
+        }
+
+        // Late join: a joining client asks; the master re-sends every manipulated object's absolute
+        // transform. Absolute sync is idempotent, so re-applying on peers that already match is a no-op.
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+        private void RPC_RequestObjectStates()
+        {
+            foreach (var kv in _objStates)
+                RPC_SetObjectState(kv.Key, kv.Value.scale, kv.Value.pos, kv.Value.rot);
+        }
+
+        [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+        private void RPC_SetObjectState(string id, Vector3 scale, Vector3 pos, Quaternion rot)
+        {
+            var mo = ManipulableRegistry.Instance?.FindById(id);
+            if (mo != null) mo.SetLocal(scale, pos, rot);
         }
 
         // ------------------------------------------------------------------
