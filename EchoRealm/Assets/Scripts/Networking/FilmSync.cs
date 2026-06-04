@@ -78,6 +78,24 @@ namespace EchoRealm.Networking
         }
 
         // ------------------------------------------------------------------
+        // Film start — "START" voice command, networked so both headsets begin together
+        // ------------------------------------------------------------------
+
+        /// <summary>Any device requests the film to begin; only the master actually starts it,
+        /// which broadcasts Act 1 to every headset via RPC_StartAct.</summary>
+        public void RequestStartFilm()
+        {
+            if (HasStateAuthority) FilmDirector.Instance?.StartFilm();
+            else RPC_RequestStartFilm();
+        }
+
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+        private void RPC_RequestStartFilm()
+        {
+            FilmDirector.Instance?.StartFilm(); // runs on the master → DriveAct(1) → RPC_StartAct to all
+        }
+
+        // ------------------------------------------------------------------
         // Voice → shared world
         // ------------------------------------------------------------------
 

@@ -258,6 +258,23 @@ namespace EchoRealm.AI
             // AI/network command pipeline. The speech recognizer often splits "unpocket" into
             // "un pocket", so match several forms; "restore"/"resume" also work as clear unpocket words.
             string meta = text.ToLowerInvariant();
+
+            // "START" — only meaningful BEFORE the film begins. Once the film is playing we let it
+            // through as a normal command (so "start a fire" still works). When heard pre-film it
+            // begins Act 1 on EVERY headset at once (networked via FilmSync → the master).
+            var film = EchoRealm.Film.FilmDirector.Instance;
+            bool filmPlaying = film != null && film.IsPlaying;
+            if (!filmPlaying &&
+                (meta.Contains("start") || meta.Contains("begin") ||
+                 meta.Contains("lets go") || meta.Contains("let's go") || meta.Contains("let us go")))
+            {
+                Log($"Meta-command START (heard: '{text}') — beginning the film for all headsets.");
+                var startSync = EchoRealm.Networking.FilmSync.Instance;
+                if (startSync != null) startSync.RequestStartFilm();
+                else film?.StartFilm();
+                return;
+            }
+
             bool wantsUnpocket = meta.Contains("unpocket") || meta.Contains("un pocket")
                                  || meta.Contains("unproket") || meta.Contains("unprocket") || meta.Contains("unfrocket")
                                  || meta.Contains("restor")    // matches "restore" AND "restoration"

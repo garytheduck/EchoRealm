@@ -29,8 +29,12 @@ namespace EchoRealm.Film
         [SerializeField] private TMPro.TextMeshPro statusText;
 
         [Header("Settings")]
-        [Tooltip("Automatically start the film after all systems are ready.")]
+        [Tooltip("Automatically start the film after all systems are ready (only used when Require Start Command is OFF).")]
         [SerializeField] private bool autoStartFilm = true;
+
+        [Tooltip("If true (default), the grove + characters appear but the acts DON'T begin until a viewer says " +
+                 "\"START\". The master then starts Act 1 on every headset together. Uncheck to fall back to auto-start.")]
+        [SerializeField] private bool requireStartCommand = true;
 
         [Tooltip("If QR code isn't detected after this many seconds, skip QR anchoring and continue with default origin.")]
         [SerializeField] private float qrTimeoutSeconds = 8f;
@@ -158,12 +162,31 @@ namespace EchoRealm.Film
             // Step 4: Ready
             currentState = BootState.Ready;
 
-            if (autoStartFilm)
+            if (requireStartCommand)
+            {
+                // START-gated: show the grove + characters and listen, but don't begin the acts
+                // until a viewer says "START" (networked — the master then starts Act 1 for everyone).
+                ArmStartCommand();
+            }
+            else if (autoStartFilm)
             {
                 // Small delay so user can read the status
                 await System.Threading.Tasks.Task.Delay(2000);
                 StartFilm();
             }
+        }
+
+        /// <summary>
+        /// Ready, but waiting for the spoken "START" command. The grove and characters are already
+        /// visible; start the mic so we can hear "START", but DON'T begin the acts. When any headset
+        /// says "START", FilmSync starts Act 1 on every device together.
+        /// </summary>
+        private void ArmStartCommand()
+        {
+            Debug.Log("[Boot] Ready — waiting for the spoken 'START' command before the film begins.");
+            if (voiceProcessor != null)
+                voiceProcessor.StartListening();
+            SetStatus("The grove awaits.\nSay \"START\" to begin.");
         }
 
         /// <summary>
