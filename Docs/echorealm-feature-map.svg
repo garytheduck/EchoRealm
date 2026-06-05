@@ -1,0 +1,133 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 1080" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <defs>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#0f172a" flood-opacity="0.10"/>
+    </filter>
+  </defs>
+
+  <!-- background -->
+  <rect x="0" y="0" width="1500" height="1080" fill="#f8fafc"/>
+
+  <!-- title -->
+  <text x="44" y="62" font-size="42" font-weight="800" fill="#0f172a">EchoRealm</text>
+  <rect x="46" y="74" width="200" height="4" rx="2" fill="#7c3aed"/>
+  <text x="48" y="102" font-size="17" fill="#475569">Mixed-Reality Interactive Film for HoloLens 2 &#8212; AI-adaptive &#183; multi-user &#183; voice + gaze + gesture</text>
+
+  <!-- ===== Row 1 ===== -->
+
+  <!-- Card 1: Mixed Reality Foundation -->
+  <g transform="translate(40,130)">
+    <rect width="453" height="248" rx="16" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5" filter="url(#shadow)"/>
+    <circle cx="26" cy="30" r="7" fill="#2563eb"/>
+    <text x="44" y="36" font-size="18" font-weight="700" fill="#2563eb">Mixed Reality Foundation</text>
+    <line x1="22" y1="52" x2="431" y2="52" stroke="#eef2f6" stroke-width="1.5"/>
+    <text x="26" y="82" font-size="16" fill="#2563eb">&#8226;</text><text x="42" y="82" font-size="14.5" fill="#334155">Holographic grove placed in your real room</text>
+    <text x="26" y="110" font-size="16" fill="#2563eb">&#8226;</text><text x="42" y="110" font-size="14.5" fill="#334155">HoloLens 2 &#183; Unity &#183; MRTK3 &#183; OpenXR</text>
+    <text x="26" y="138" font-size="16" fill="#2563eb">&#8226;</text><text x="42" y="138" font-size="14.5" fill="#334155">QR-anchored SceneRoot = shared spatial origin</text>
+  </g>
+
+  <!-- Card 2: Multi-User & Co-location -->
+  <g transform="translate(523,130)">
+    <rect width="453" height="248" rx="16" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5" filter="url(#shadow)"/>
+    <circle cx="26" cy="30" r="7" fill="#0891b2"/>
+    <text x="44" y="36" font-size="18" font-weight="700" fill="#0891b2">Multi-User &amp; Co-location</text>
+    <line x1="22" y1="52" x2="431" y2="52" stroke="#eef2f6" stroke-width="1.5"/>
+    <text x="26" y="82" font-size="16" fill="#0891b2">&#8226;</text><text x="42" y="82" font-size="14.5" fill="#334155">Two or more headsets share ONE live film</text>
+    <text x="26" y="110" font-size="16" fill="#0891b2">&#8226;</text><text x="42" y="110" font-size="14.5" fill="#334155">Photon Fusion 2 &#8212; master-authoritative sync</text>
+    <text x="26" y="138" font-size="16" fill="#0891b2">&#8226;</text><text x="42" y="138" font-size="14.5" fill="#334155">Same QR &#8594; same place for everyone</text>
+  </g>
+
+  <!-- Card 3: AI-Adaptive Narrative -->
+  <g transform="translate(1006,130)">
+    <rect width="453" height="248" rx="16" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5" filter="url(#shadow)"/>
+    <circle cx="26" cy="30" r="7" fill="#7c3aed"/>
+    <text x="44" y="36" font-size="18" font-weight="700" fill="#7c3aed">AI-Adaptive Narrative</text>
+    <line x1="22" y1="52" x2="431" y2="52" stroke="#eef2f6" stroke-width="1.5"/>
+    <text x="26" y="82" font-size="16" fill="#7c3aed">&#8226;</text><text x="42" y="82" font-size="14.5" fill="#334155">A 4-act interactive film</text>
+    <text x="26" y="110" font-size="16" fill="#7c3aed">&#8226;</text><text x="42" y="110" font-size="14.5" fill="#334155">Claude branches the story from your behavior</text>
+    <text x="26" y="138" font-size="16" fill="#7c3aed">&#8226;</text><text x="42" y="138" font-size="14.5" fill="#334155">World tone: nurturing vs. chaotic</text>
+    <text x="26" y="166" font-size="16" fill="#7c3aed">&#8226;</text><text x="42" y="166" font-size="14.5" fill="#334155">Paths: verdant &#183; scorched &#183; twilight</text>
+  </g>
+
+  <!-- ===== Row 2 ===== -->
+
+  <!-- Card 4: The Oracle -->
+  <g transform="translate(40,406)">
+    <rect width="453" height="248" rx="16" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5" filter="url(#shadow)"/>
+    <circle cx="26" cy="30" r="7" fill="#4f46e5"/>
+    <text x="44" y="36" font-size="18" font-weight="700" fill="#4f46e5">The Oracle</text>
+    <line x1="22" y1="52" x2="431" y2="52" stroke="#eef2f6" stroke-width="1.5"/>
+    <text x="26" y="82" font-size="16" fill="#4f46e5">&#8226;</text><text x="42" y="82" font-size="14.5" fill="#334155">A priest-Oracle guides the journey</text>
+    <text x="26" y="110" font-size="16" fill="#4f46e5">&#8226;</text><text x="42" y="110" font-size="14.5" fill="#334155">AI-written narration each playthrough</text>
+    <text x="26" y="138" font-size="16" fill="#4f46e5">&#8226;</text><text x="42" y="138" font-size="14.5" fill="#334155">Speaks its lines aloud (on-device voice)</text>
+  </g>
+
+  <!-- Card 5: Voice -> World Commands -->
+  <g transform="translate(523,406)">
+    <rect width="453" height="248" rx="16" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5" filter="url(#shadow)"/>
+    <circle cx="26" cy="30" r="7" fill="#16a34a"/>
+    <text x="44" y="36" font-size="18" font-weight="700" fill="#16a34a">Voice &#8594; World Commands</text>
+    <line x1="22" y1="52" x2="431" y2="52" stroke="#eef2f6" stroke-width="1.5"/>
+    <text x="26" y="82" font-size="16" fill="#16a34a">&#8226;</text><text x="42" y="82" font-size="14.5" fill="#334155">Shape the world just by speaking</text>
+    <text x="26" y="110" font-size="16" fill="#16a34a">&#8226;</text><text x="42" y="110" font-size="14.5" fill="#334155">Rain, fire, day/night, fog, lightning&#8230;</text>
+    <text x="26" y="138" font-size="16" fill="#16a34a">&#8226;</text><text x="42" y="138" font-size="14.5" fill="#334155">Several effects in one sentence</text>
+    <text x="26" y="166" font-size="16" fill="#16a34a">&#8226;</text><text x="42" y="166" font-size="14.5" fill="#334155">Undo: &#8220;make the rain go away&#8221;</text>
+    <text x="26" y="194" font-size="16" fill="#16a34a">&#8226;</text><text x="42" y="194" font-size="14.5" fill="#334155">Say &#8220;START&#8221; to begin (networked)</text>
+  </g>
+
+  <!-- Card 6: Gaze & Eye Tracking -->
+  <g transform="translate(1006,406)">
+    <rect width="453" height="248" rx="16" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5" filter="url(#shadow)"/>
+    <circle cx="26" cy="30" r="7" fill="#ca8a04"/>
+    <text x="44" y="36" font-size="18" font-weight="700" fill="#ca8a04">Gaze &amp; Eye Tracking</text>
+    <line x1="22" y1="52" x2="431" y2="52" stroke="#eef2f6" stroke-width="1.5"/>
+    <text x="26" y="82" font-size="16" fill="#ca8a04">&#8226;</text><text x="42" y="82" font-size="14.5" fill="#334155">Tracks what you look at (gaze + dwell)</text>
+    <text x="26" y="110" font-size="16" fill="#ca8a04">&#8226;</text><text x="42" y="110" font-size="14.5" fill="#334155">Feeds the AI's read of your attention</text>
+    <text x="26" y="138" font-size="16" fill="#ca8a04">&#8226;</text><text x="42" y="138" font-size="14.5" fill="#334155">Powers &#8220;look at this&#8221; object targeting</text>
+  </g>
+
+  <!-- ===== Row 3 ===== -->
+
+  <!-- Card 7: Hand & World Manipulation -->
+  <g transform="translate(40,682)">
+    <rect width="453" height="248" rx="16" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5" filter="url(#shadow)"/>
+    <circle cx="26" cy="30" r="7" fill="#ea580c"/>
+    <text x="44" y="36" font-size="18" font-weight="700" fill="#ea580c">Hand &amp; World Manipulation</text>
+    <line x1="22" y1="52" x2="431" y2="52" stroke="#eef2f6" stroke-width="1.5"/>
+    <text x="26" y="82" font-size="16" fill="#ea580c">&#8226;</text><text x="42" y="82" font-size="14.5" fill="#334155">Grab, move &amp; scale individual props</text>
+    <text x="26" y="110" font-size="16" fill="#ea580c">&#8226;</text><text x="42" y="110" font-size="14.5" fill="#334155">Grab &amp; scale the WHOLE world</text>
+    <text x="26" y="138" font-size="16" fill="#ea580c">&#8226;</text><text x="42" y="138" font-size="14.5" fill="#334155">Either headset can drive it (synced)</text>
+    <text x="26" y="166" font-size="16" fill="#ea580c">&#8226;</text><text x="42" y="166" font-size="14.5" fill="#334155">Co-op: both grab the Heart Stone (Act 3)</text>
+  </g>
+
+  <!-- Card 8: "Claude" Object Manipulation -->
+  <g transform="translate(523,682)">
+    <rect width="453" height="248" rx="16" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5" filter="url(#shadow)"/>
+    <circle cx="26" cy="30" r="7" fill="#db2777"/>
+    <text x="44" y="36" font-size="18" font-weight="700" fill="#db2777">&#8220;Claude&#8221; Object Manipulation</text>
+    <line x1="22" y1="52" x2="431" y2="52" stroke="#eef2f6" stroke-width="1.5"/>
+    <text x="26" y="82" font-size="16" fill="#db2777">&#8226;</text><text x="42" y="82" font-size="14.5" fill="#334155">&#8220;Claude, make this bigger&#8221;</text>
+    <text x="26" y="110" font-size="16" fill="#db2777">&#8226;</text><text x="42" y="110" font-size="14.5" fill="#334155">Acts on the object you're gazing at</text>
+    <text x="26" y="138" font-size="16" fill="#db2777">&#8226;</text><text x="42" y="138" font-size="14.5" fill="#334155">scale &#183; move &#183; rotate &#183; reset</text>
+    <text x="26" y="166" font-size="16" fill="#db2777">&#8226;</text><text x="42" y="166" font-size="14.5" fill="#334155">AI-judged amount (&#8220;a bit&#8221; / &#8220;a lot&#8221;)</text>
+  </g>
+
+  <!-- Card 9: Pocket the World -->
+  <g transform="translate(1006,682)">
+    <rect width="453" height="248" rx="16" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5" filter="url(#shadow)"/>
+    <circle cx="26" cy="30" r="7" fill="#0f766e"/>
+    <text x="44" y="36" font-size="18" font-weight="700" fill="#0f766e">Pocket the World</text>
+    <line x1="22" y1="52" x2="431" y2="52" stroke="#eef2f6" stroke-width="1.5"/>
+    <text x="26" y="82" font-size="16" fill="#0f766e">&#8226;</text><text x="42" y="82" font-size="14.5" fill="#334155">Shrink + pull it close to pocket it away</text>
+    <text x="26" y="110" font-size="16" fill="#0f766e">&#8226;</text><text x="42" y="110" font-size="14.5" fill="#334155">Hides &amp; pauses the film for ALL headsets</text>
+    <text x="26" y="138" font-size="16" fill="#0f766e">&#8226;</text><text x="42" y="138" font-size="14.5" fill="#334155">Say &#8220;resume&#8221; or tap the floating button</text>
+  </g>
+
+  <!-- ===== Footer ===== -->
+  <g transform="translate(40,958)">
+    <rect width="1419" height="96" rx="16" fill="#0f172a"/>
+    <text x="26" y="38" font-size="18" font-weight="700" fill="#ffffff">Networked &amp; co-located</text>
+    <text x="26" y="64" font-size="14.5" fill="#cbd5e1">Every change &#8212; voice commands, object manipulation, pocket &amp; resume &#8212; syncs to all headsets; a late-joiner inherits the full modified world.</text>
+    <text x="26" y="86" font-size="13" fill="#64748b">Unity 2022.3 &#183; Built-In RP &#183; MRTK3 &#183; OpenXR &#183; Photon Fusion 2 &#183; Anthropic Claude &#183; Windows Speech + TTS</text>
+  </g>
+</svg>
