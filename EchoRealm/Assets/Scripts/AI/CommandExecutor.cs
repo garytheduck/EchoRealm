@@ -256,6 +256,24 @@ namespace EchoRealm.AI
             OnCommandExecuted?.Invoke(command);
         }
 
+        /// <summary>Replay/rewind helper: turn every persistent effect OFF and reset state flags
+        /// to their authored defaults. Reuses ExecuteCommand so behavior matches exactly.
+        /// Additive — never called by the live film.</summary>
+        public void ResetWorldToDefaults()
+        {
+            ExecuteCommand("stop_rain");
+            ExecuteCommand("day");
+            ExecuteCommand("stop_fire");
+            ExecuteCommand("stop_wind");
+            ExecuteCommand("stop_fog");
+            ExecuteCommand("stop_butterflies");
+            ExecuteCommand("stop_fireflies");
+            ExecuteCommand("open_path");
+            SetGameObject(forestGroup, false);
+            SetGameObject(flowersGroup, false);
+            hasForest = false;
+        }
+
         // ------------------------------------------------------------------
         // Effect Helpers
         // ------------------------------------------------------------------
