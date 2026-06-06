@@ -4,35 +4,39 @@ using MixedReality.Toolkit;
 
 namespace EchoRealm.Interaction
 {
-    /// <summary>A small head-following panel with "Rewind 20s" / "Rewind 1m" buttons that call
-    /// FilmSync.RequestRewind (networked → both headsets jump together). Runtime-built like
-    /// ResumeButton. Attach to a persistent object (GameManager) in MainScene.</summary>
+    /// <summary>A small panel with "Rewind 20s" / "Rewind 1m" buttons that call
+    /// FilmSync.RequestRewind (networked → both headsets jump together). Placed ONCE in front of the
+    /// user at startup and then left FIXED in world space — it does NOT follow the head. Runtime-built
+    /// like ResumeButton. Attach to a persistent object (GameManager) in MainScene.</summary>
     public class RewindMenu : MonoBehaviour
     {
+        [Tooltip("Distance in front of the user where the panel is placed once, at startup.")]
         [SerializeField] private float distance = 0.6f;
-        [SerializeField] private float verticalOffset = -0.18f;
-        [Range(0.02f, 1f)][SerializeField] private float followLerp = 0.12f;
+        [Tooltip("Vertical offset from eye-line at placement (negative = a bit lower, easier to reach).")]
+        [SerializeField] private float verticalOffset = -0.2f;
 
         private GameObject _go;
 
         private void Start() => Build();
 
-        private void LateUpdate()
-        {
-            if (_go == null) return;
-            var cam = Camera.main;
-            if (cam == null) return;
-            Vector3 target = cam.transform.position + cam.transform.forward * distance
-                             + cam.transform.up * verticalOffset;
-            _go.transform.position = Vector3.Lerp(_go.transform.position, target, followLerp);
-            _go.transform.rotation = Quaternion.LookRotation(_go.transform.position - cam.transform.position, cam.transform.up);
-        }
-
         private void Build()
         {
             _go = new GameObject("RewindMenu(Runtime)");
-            MakeButton("⟲ 20s", new Vector3(-0.13f, 0, 0), () => Rewind(20f));
-            MakeButton("⟲ 1m", new Vector3(0.13f, 0, 0), () => Rewind(60f));
+            PlaceOnce();   // fixed in world space — no per-frame head-follow
+            MakeButton("<< 20s", new Vector3(-0.13f, 0, 0), () => Rewind(20f));
+            MakeButton("<< 1m", new Vector3(0.13f, 0, 0), () => Rewind(60f));
+        }
+
+        // Position the panel once, in front of the user, facing them so the labels read correctly
+        // (+Z toward the camera, matching ResumeButton). Then it stays put in world space.
+        private void PlaceOnce()
+        {
+            var cam = Camera.main;
+            if (cam == null) return;
+            _go.transform.position = cam.transform.position
+                                     + cam.transform.forward * distance
+                                     + cam.transform.up * verticalOffset;
+            _go.transform.rotation = Quaternion.LookRotation(cam.transform.position - _go.transform.position, Vector3.up);
         }
 
         private void Rewind(float seconds)
