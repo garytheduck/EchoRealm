@@ -275,14 +275,7 @@ namespace EchoRealm.Sandbox
             _rb = GetComponent<Rigidbody>();
             _anchor = QRAnchorManager.Instance;
             ApplyAuthorityPhysicsState();
-
-            // A late/remote copy snaps to the already-published pose immediately.
-            if (!HasStateAuthority && _anchor != null && AnchorRelRot != default)
-            {
-                SandboxMath.FromAnchorRelative(_anchor.AnchorPosition, _anchor.AnchorRotation,
-                    AnchorRelPos, AnchorRelRot, out var w, out var r);
-                transform.SetPositionAndRotation(w, r);
-            }
+            // Non-authority copies are positioned by Render() from the networked anchor-relative pose.
         }
 
         public override void FixedUpdateNetwork()
@@ -309,19 +302,25 @@ namespace EchoRealm.Sandbox
             }
         }
 
-        public override void StateAuthorityChanged() => ApplyAuthorityPhysicsState();
-
         private void Update()
         {
-            // Track hand velocity while held so we can throw on release.
-            if (!_held) return;
-            float dt = Time.deltaTime;
-            if (dt > 0f)
+            if (_held)
             {
-                Vector3 v = (transform.position - _lastHeldPos) / dt;
-                _heldVel = Vector3.Lerp(_heldVel, v, 0.5f);
+                // Track hand velocity while held so we can throw on release.
+                float dt = Time.deltaTime;
+                if (dt > 0f)
+                {
+                    Vector3 v = (transform.position - _lastHeldPos) / dt;
+                    _heldVel = Vector3.Lerp(_heldVel, v, 0.5f);
+                }
+                _lastHeldPos = transform.position;
+                return;
             }
-            _lastHeldPos = transform.position;
+
+            // Not held: keep the rigidbody's kinematic state in sync with whoever currently owns the
+            // ball. Done per-frame instead of via Fusion's IStateAuthorityChanged callback so authority
+            // transfer (on grab) flips simulation on/off with no extra wiring.
+            ApplyAuthorityPhysicsState();
         }
 
         /// <summary>Dynamic only when we own it and it's not in a hand; kinematic + follower otherwise.</summary>
