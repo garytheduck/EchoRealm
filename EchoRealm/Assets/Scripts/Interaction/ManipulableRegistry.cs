@@ -58,6 +58,10 @@ namespace EchoRealm.Interaction
         public ManipulableObject FindById(string id)
             => (id != null && _byId.TryGetValue(id, out var mo)) ? mo : null;
 
+        /// <summary>All registered manipulable props (read-only). Used by replay to reset
+        /// every prop to its baseline. Additive — existing lookups are unchanged.</summary>
+        public System.Collections.Generic.IEnumerable<ManipulableObject> All => _byId.Values;
+
         /// <summary>Walk up from a gazed GameObject to its ManipulableObject (null if none).</summary>
         public ManipulableObject Resolve(GameObject gazed)
         {

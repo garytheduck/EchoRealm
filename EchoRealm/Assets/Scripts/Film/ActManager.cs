@@ -100,6 +100,26 @@ namespace EchoRealm.Film
             }
         }
 
+        /// <summary>Replay/rewind helper: set an act's VISUAL state only — no coroutines, no
+        /// Oracle narration, no waits. Mirrors the obstacle/portal setup that the act coroutines
+        /// perform, so a reconstructed scene matches without re-performing the act.</summary>
+        public void ApplyActState(int actNumber, string variant)
+        {
+            StopAllCoroutines();
+            DeactivateTrialObstacles();
+            CurrentAct = actNumber;
+
+            if (actNumber == 3)
+            {
+                var obstacle = PickObstacleForVariant(variant ?? "default");
+                if (obstacle != null) obstacle.SetActive(true);
+            }
+            else if (actNumber == 4)
+            {
+                if (portalEffect != null) portalEffect.SetActive(true);
+            }
+        }
+
         // ------------------------------------------------------------------
         // Act 1 — Awakening
         // ------------------------------------------------------------------
