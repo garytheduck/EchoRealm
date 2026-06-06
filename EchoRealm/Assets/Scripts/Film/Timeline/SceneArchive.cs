@@ -13,7 +13,8 @@ namespace EchoRealm.Film
         public static string DefaultDir =>
             Path.Combine(Application.persistentDataPath, "EchoRealmSaves");
 
-        /// <summary>Write the timeline as JSON and the log as a .txt sidecar. Returns the json path.</summary>
+        /// <summary>Write the timeline as JSON and the log as a .txt sidecar. Returns the json path.
+        /// Populates derived meta fields (eventCount, savedAtIso, durationSec) before writing.</summary>
         public static string Save(SceneTimeline tl, string logText, string dir = null, string fileName = null)
         {
             dir = dir ?? DefaultDir;
@@ -21,7 +22,7 @@ namespace EchoRealm.Film
 
             tl.meta.eventCount = tl.events.Count;
             if (string.IsNullOrEmpty(tl.meta.savedAtIso))
-                tl.meta.savedAtIso = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss");
+                tl.meta.savedAtIso = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
             if (tl.events.Count > 0)
                 tl.meta.durationSec = tl.events[tl.events.Count - 1].t;
 

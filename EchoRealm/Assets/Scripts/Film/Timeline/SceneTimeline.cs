@@ -4,6 +4,10 @@ using UnityEngine;
 
 namespace EchoRealm.Film
 {
+    /// <summary>Mirror of EchoRealm.Interaction.ObjOpType for the headless core (which cannot
+    /// reference Assembly-CSharp). Values MUST match ObjOpType: Scale=0, Move=1, Rotate=2, Reset=3.</summary>
+    internal enum ReplayObjOp { Scale = 0, Move = 1, Rotate = 2, Reset = 3 }
+
     /// <summary>Kinds of recorded events. WorldCommand/ObjectOp/ActTransition affect scene
     /// state on replay; AiUtterance is transcript-only (no scene effect).</summary>
     public enum EventKind { WorldCommand, ObjectOp, ActTransition, AiUtterance }

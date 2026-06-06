@@ -17,10 +17,10 @@ namespace EchoRealm.Film
             });
         }
 
-        public void AddObjectOp(string id, int opType, float factor, Vector3 delta, float degrees, float t = 0f)
+        public void AddObjectOp(string id, int opType, float factor, Vector3 delta, float degrees, float t)
         {
-            // One scalar field carries factor (Scale) OR degrees (Rotate); Move uses the delta.
-            float scalar = opType == 2 /*Rotate*/ ? degrees : factor;
+            // One scalar field carries factor (Scale) OR degrees (Rotate); Move/Reset use the delta.
+            float scalar = opType == (int)ReplayObjOp.Rotate ? degrees : factor;
             Timeline.events.Add(new TimelineEvent
             {
                 t = t, kind = EventKind.ObjectOp, id = id, i = opType, f = scalar, v = delta
