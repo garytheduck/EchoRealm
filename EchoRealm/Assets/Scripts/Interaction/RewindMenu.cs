@@ -14,8 +14,11 @@ namespace EchoRealm.Interaction
         [SerializeField] private float distance = 0.6f;
         [Tooltip("Vertical offset from eye-line at placement (negative = a bit lower, easier to reach).")]
         [SerializeField] private float verticalOffset = -0.2f;
+        [Tooltip("Minimum seconds between rewinds — debounces repeated/held presses so one tap = one rewind.")]
+        [SerializeField] private float rewindCooldown = 1.5f;
 
         private GameObject _go;
+        private float _lastRewind = -999f;
 
         private void Start() => Build();
 
@@ -41,6 +44,11 @@ namespace EchoRealm.Interaction
 
         private void Rewind(float seconds)
         {
+            // Debounce: the panel sits in view and a single press can raise OnClicked repeatedly,
+            // which otherwise floods rewinds. Ignore presses within the cooldown of the last one.
+            if (Time.unscaledTime - _lastRewind < rewindCooldown) return;
+            _lastRewind = Time.unscaledTime;
+
             var sync = EchoRealm.Networking.FilmSync.Instance;
             if (sync != null) sync.RequestRewind(seconds);
             else Debug.LogWarning("[RewindMenu] No FilmSync — rewind needs a session.");
