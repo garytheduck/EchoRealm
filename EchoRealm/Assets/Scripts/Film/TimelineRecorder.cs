@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using EchoRealm.AI;
 using EchoRealm.Characters;
@@ -15,6 +16,8 @@ namespace EchoRealm.Film
 
         public TimelineLog Log { get; } = new TimelineLog();
         public SceneTimeline Timeline => Log.Timeline;
+
+        private readonly List<AiMemoryState> _aiSnapshots = new List<AiMemoryState>();
 
         private float _startTime = -1f;
         private bool _subscribedInstances;
@@ -75,26 +78,55 @@ namespace EchoRealm.Film
             return Time.time - _startTime;
         }
 
-        private void HandleWorldCommand(string command) => Log.AddWorldCommand(command, Now());
+        private void HandleWorldCommand(string command) { Log.AddWorldCommand(command, Now()); SnapshotAiMemory(); }
 
         private void HandleObjectOp(string id, int opType, float factor, Vector3 delta, float degrees)
-            => Log.AddObjectOp(id, opType, factor, delta, degrees, Now());
+        { Log.AddObjectOp(id, opType, factor, delta, degrees, Now()); SnapshotAiMemory(); }
 
         private void HandleActStarted(int act, string variant)
         {
             Log.AddActTransition(act, variant, Now());
             Log.Timeline.meta.finalAct = act;
+            SnapshotAiMemory();
         }
 
-        private void HandleSpoke(string text, string mood) => Log.AddUtterance("Oracle", text, Now());
+        private void HandleSpoke(string text, string mood) { Log.AddUtterance("Oracle", text, Now()); SnapshotAiMemory(); }
 
-        private void HandleSpeech(string text) => Log.AddUtterance("User", text, Now());
+        private void HandleSpeech(string text) { Log.AddUtterance("User", text, Now()); SnapshotAiMemory(); }
 
         private void HandleAIResponse(AICommandResponse r)
         {
             if (r == null) return;
             string cmds = (r.commands != null) ? string.Join(",", r.commands) : "";
             Log.AddUtterance("AI", $"decided [{cmds}] mood={r.mood}", Now());
+            SnapshotAiMemory();
+        }
+
+        // Capture the AI's cumulative memory at the current time (called after each recorded event).
+        private void SnapshotAiMemory()
+        {
+            var ac = EchoRealm.AI.ActionCollector.Instance;
+            var m = ac != null ? ac.CaptureMemory(Now()) : new AiMemoryState { t = Now() };
+            NarrativeManager.Instance?.CaptureInto(m);
+            _aiSnapshots.Add(m);
+        }
+
+        /// <summary>Rewind: restore the AI's memory to the latest snapshot at or before t (empty
+        /// baseline if none), and drop snapshots after t. Called by FilmSync.DoRewind.</summary>
+        public void RestoreAiMemoryAt(float t)
+        {
+            AiMemoryState chosen = null;
+            for (int k = 0; k < _aiSnapshots.Count; k++)
+            {
+                if (_aiSnapshots[k].t <= t) chosen = _aiSnapshots[k];
+                else break;
+            }
+            var state = chosen ?? new AiMemoryState { t = 0f }; // before first command → empty
+            EchoRealm.AI.ActionCollector.Instance?.RestoreMemory(state);
+            NarrativeManager.Instance?.RestoreFrom(state);
+
+            for (int k = _aiSnapshots.Count - 1; k >= 0; k--)
+                if (_aiSnapshots[k].t > t) _aiSnapshots.RemoveAt(k);
         }
 
         /// <summary>Set the session id used in the saved filename (call once when the film starts).</summary>

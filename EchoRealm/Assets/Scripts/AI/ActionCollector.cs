@@ -138,6 +138,23 @@ namespace EchoRealm.AI
             Log("Recent actions cleared for new act.");
         }
 
+        /// <summary>Snapshot the cumulative profile + recent actions at time t (for rewind).</summary>
+        public AiMemoryState CaptureMemory(float t)
+        {
+            var m = new AiMemoryState { t = t };
+            Profile.CaptureInto(m);
+            m.recentActions = new List<string>(_recentActions);
+            return m;
+        }
+
+        /// <summary>Roll the profile + recent actions back to a snapshot (rewind).</summary>
+        public void RestoreMemory(AiMemoryState m)
+        {
+            Profile.RestoreFrom(m);
+            _recentActions.Clear();
+            if (m.recentActions != null) _recentActions.AddRange(m.recentActions);
+        }
+
         // ------------------------------------------------------------------
         // Helpers
         // ------------------------------------------------------------------

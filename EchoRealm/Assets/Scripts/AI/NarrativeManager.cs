@@ -149,6 +149,24 @@ namespace EchoRealm.AI
             return summary;
         }
 
+        /// <summary>Snapshot the session command logs + mood (for rewind).</summary>
+        public void CaptureInto(AiMemoryState m)
+        {
+            m.voiceLog = new List<string>(VoiceCommandLog);
+            m.executedLog = new List<string>(ExecutedCommandLog);
+            m.narrativeCooperation = CooperationCount;
+            m.mood = CurrentMood;
+        }
+
+        /// <summary>Roll the session command logs + mood back to a snapshot (rewind).</summary>
+        public void RestoreFrom(AiMemoryState m)
+        {
+            VoiceCommandLog = m.voiceLog != null ? new List<string>(m.voiceLog) : new List<string>();
+            ExecutedCommandLog = m.executedLog != null ? new List<string>(m.executedLog) : new List<string>();
+            CooperationCount = m.narrativeCooperation;
+            CurrentMood = m.mood;
+        }
+
         /// <summary>
         /// Request the AI to generate the final Oracle monologue (Act 4).
         /// </summary>

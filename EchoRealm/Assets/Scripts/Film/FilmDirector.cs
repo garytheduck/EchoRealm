@@ -154,6 +154,18 @@ namespace EchoRealm.Film
             GoToAct(actNumber, null);
         }
 
+        /// <summary>Rewind helper: re-arm the act-flow state machine to the act active at T, so the
+        /// film resumes correctly (and re-makes later AI decisions). Decisions for acts not yet
+        /// reached are cleared. Additive — never called by the live flow.</summary>
+        public void RewindToAct(int act)
+        {
+            IsPlaying = true; IsFinished = false;
+            if (act < 4) _act4Decision = null;
+            if (act < 3) _act3Decision = null;
+            act2Active = (act == 2);
+            if (act == 2) act2StartTime = Time.time;
+        }
+
         /// <summary>
         /// End the film immediately (emergency stop).
         /// </summary>

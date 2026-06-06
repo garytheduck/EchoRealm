@@ -130,5 +130,25 @@ namespace EchoRealm.AI
             ChaosCount         = 0;
             _interactedObjects.Clear();
         }
+
+        /// <summary>Copy the cumulative counters into a snapshot (for rewind rollback).</summary>
+        public void CaptureInto(AiMemoryState m)
+        {
+            m.voice = VoiceCommandCount; m.manipulation = ManipulationCount;
+            m.cooperation = CooperationCount; m.gaze = GazeEventCount;
+            m.nurture = NurtureCount; m.chaos = ChaosCount;
+            m.interactedObjects = new List<string>(_interactedObjects);
+        }
+
+        /// <summary>Restore the cumulative counters from a snapshot (rewind rollback).</summary>
+        public void RestoreFrom(AiMemoryState m)
+        {
+            VoiceCommandCount = m.voice; ManipulationCount = m.manipulation;
+            CooperationCount = m.cooperation; GazeEventCount = m.gaze;
+            NurtureCount = m.nurture; ChaosCount = m.chaos;
+            _interactedObjects.Clear();
+            if (m.interactedObjects != null)
+                foreach (var o in m.interactedObjects) _interactedObjects.Add(o);
+        }
     }
 }
