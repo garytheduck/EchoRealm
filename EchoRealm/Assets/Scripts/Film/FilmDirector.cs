@@ -194,6 +194,9 @@ namespace EchoRealm.Film
                 string log = logger.ExportLog();
                 Debug.Log(log);
             }
+
+            // Offer to save the recorded scene (master holds the authoritative timeline).
+            if (IsMaster) SceneSavePrompt.Instance?.Show();
         }
 
         // ------------------------------------------------------------------
