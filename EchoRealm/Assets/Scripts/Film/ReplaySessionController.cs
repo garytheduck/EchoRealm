@@ -21,10 +21,20 @@ namespace EchoRealm.Film
         public void Begin()
         {
             DisableManipulation();
+            HideLiveUI();
             // ReplayUI shows the save picker and calls LoadFile() with the chosen path.
             var ui = FindObjectOfType<ReplayUI>(true);
             if (ui != null) ui.ShowPicker();
             else Debug.LogError("[Replay] No ReplayUI in scene.");
+        }
+
+        // View-only playback: silence the live recorder and hide the live rewind panel so they
+        // don't clutter the saved-scene view (they're meaningless without a live session).
+        private void HideLiveUI()
+        {
+            if (TimelineRecorder.Instance != null) TimelineRecorder.Instance.enabled = false;
+            var rewind = FindObjectOfType<RewindMenu>(true);
+            if (rewind != null) rewind.HideMenu();
         }
 
         public List<string> ListSaves() => SceneArchive.List();

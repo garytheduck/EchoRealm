@@ -54,6 +54,9 @@ namespace EchoRealm.Interaction
             else Debug.LogWarning("[RewindMenu] No FilmSync — rewind needs a session.");
         }
 
+        /// <summary>Hide the rewind panel — called when entering offline view-only playback.</summary>
+        public void HideMenu() { if (_go != null) _go.SetActive(false); }
+
         private void MakeButton(string label, Vector3 localPos, UnityEngine.Events.UnityAction onClick)
         {
             var root = new GameObject($"Btn_{label}");
