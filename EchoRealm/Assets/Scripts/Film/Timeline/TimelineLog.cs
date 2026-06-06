@@ -43,6 +43,14 @@ namespace EchoRealm.Film
             });
         }
 
+        public void AddObjectState(string id, Vector3 scale, Vector3 pos, Quaternion rot, float t)
+        {
+            Timeline.events.Add(new TimelineEvent
+            {
+                t = t, kind = EventKind.ObjectState, id = id, v = pos, v2 = scale, q = rot
+            });
+        }
+
         /// <summary>Drop every event with t &gt; cutoff (used by rewind).</summary>
         public void TruncateAfter(float cutoff)
         {

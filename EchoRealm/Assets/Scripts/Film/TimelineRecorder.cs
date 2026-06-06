@@ -2,7 +2,9 @@ using System.Collections.Generic;
 using UnityEngine;
 using EchoRealm.AI;
 using EchoRealm.Characters;
+using EchoRealm.Interaction;
 using EchoRealm.Networking;
+using MixedReality.Toolkit.SpatialManipulation;
 
 namespace EchoRealm.Film
 {
@@ -43,7 +45,11 @@ namespace EchoRealm.Film
             UnsubscribeInstances();
         }
 
-        private void Start() => SubscribeInstances();
+        private void Start()
+        {
+            SubscribeInstances();
+            StartCoroutine(HookManipulablesWhenReady());
+        }
 
         private void SubscribeInstances()
         {
@@ -125,6 +131,34 @@ namespace EchoRealm.Film
             if (RewindInProgress || r == null) return;
             string cmds = (r.commands != null) ? string.Join(",", r.commands) : "";
             Log.AddUtterance("AI", $"decided [{cmds}] mood={r.mood}", Now());
+            SnapshotAiMemory();
+        }
+
+        private System.Collections.IEnumerator HookManipulablesWhenReady()
+        {
+            // ManipulableRegistry registers props in its own Start(); wait until it's populated.
+            float timeout = 5f;
+            while (timeout > 0f && (ManipulableRegistry.Instance == null))
+            { timeout -= Time.deltaTime; yield return null; }
+            yield return null; // let registration finish
+            var reg = ManipulableRegistry.Instance;
+            if (reg == null) yield break;
+            foreach (var mo in reg.All)
+            {
+                if (mo == null) continue;
+                var om = mo.GetComponent<ObjectManipulator>();
+                if (om == null) continue;
+                var captured = mo;
+                om.lastSelectExited.AddListener(_ => OnPropManipulated(captured));
+            }
+        }
+
+        // A hand-grab of a prop ended — record its resulting absolute local transform.
+        private void OnPropManipulated(ManipulableObject mo)
+        {
+            if (RewindInProgress || mo == null) return;
+            mo.GetLocal(out var s, out var p, out var r);
+            Log.AddObjectState(mo.Id, s, p, r, Now());
             SnapshotAiMemory();
         }
 

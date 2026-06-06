@@ -10,7 +10,7 @@ namespace EchoRealm.Film
 
     /// <summary>Kinds of recorded events. WorldCommand/ObjectOp/ActTransition affect scene
     /// state on replay; AiUtterance is transcript-only (no scene effect).</summary>
-    public enum EventKind { WorldCommand, ObjectOp, ActTransition, AiUtterance }
+    public enum EventKind { WorldCommand, ObjectOp, ActTransition, AiUtterance, ObjectState }
 
     /// <summary>One thing that happened, with its timestamp. Flat tagged record so Unity's
     /// JsonUtility can round-trip it (JsonUtility cannot serialize polymorphic subclasses).
@@ -27,6 +27,8 @@ namespace EchoRealm.Film
         public int i;            // object op type (ObjOpType) | act number
         public float f;          // scale factor (Scale) | yaw degrees (Rotate)
         public Vector3 v;        // move delta (Move)
+        public Vector3 v2;       // ObjectState: absolute local scale (v = pos, q = rot)
+        public Quaternion q;     // ObjectState: absolute local rotation
     }
 
     /// <summary>Header info saved alongside the events.</summary>

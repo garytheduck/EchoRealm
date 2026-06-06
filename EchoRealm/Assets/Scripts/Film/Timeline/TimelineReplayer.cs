@@ -29,6 +29,9 @@ namespace EchoRealm.Film
                     case EventKind.ActTransition:
                         target.ApplyActState(e.i, e.text);
                         break;
+                    case EventKind.ObjectState:
+                        target.SetObjectState(e.id, e.v2, e.v, e.q);
+                        break;
                     case EventKind.AiUtterance:
                         break; // transcript-only
                 }

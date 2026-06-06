@@ -42,5 +42,11 @@ namespace EchoRealm.Film
 
         public void ApplyActState(int act, string variant)
             => ActManager.Instance?.ApplyActState(act, variant);
+
+        public void SetObjectState(string id, Vector3 scale, Vector3 pos, Quaternion rot)
+        {
+            var mo = ManipulableRegistry.Instance?.FindById(id);
+            if (mo != null) mo.SetLocal(scale, pos, rot);
+        }
     }
 }

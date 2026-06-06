@@ -11,5 +11,6 @@ namespace EchoRealm.Film
         void ApplyWorldCommand(string command);
         void ApplyObjectOp(string id, int opType, float scalar, Vector3 delta);
         void ApplyActState(int act, string variant);
+        void SetObjectState(string id, Vector3 scale, Vector3 pos, Quaternion rot);
     }
 }

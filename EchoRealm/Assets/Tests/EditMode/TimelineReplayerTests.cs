@@ -13,11 +13,13 @@ namespace EchoRealm.Film.Tests
             public List<string> calls = new List<string>();
             public HashSet<string> flags = new HashSet<string>();
             public Dictionary<string, float> scale = new Dictionary<string, float>();
+            public Dictionary<string, (Vector3 scale, Vector3 pos, Quaternion rot)> states
+                = new Dictionary<string, (Vector3 scale, Vector3 pos, Quaternion rot)>();
             public int act; public string variant;
 
             public void ResetToBaseline()
             {
-                calls.Add("reset"); flags.Clear(); scale.Clear(); act = 0; variant = null;
+                calls.Add("reset"); flags.Clear(); scale.Clear(); states.Clear(); act = 0; variant = null;
             }
             public void ApplyWorldCommand(string c)
             {
@@ -31,6 +33,11 @@ namespace EchoRealm.Film.Tests
                 if (opType == 0) { float s = scale.ContainsKey(id) ? scale[id] : 1f; scale[id] = s * scalar; }
             }
             public void ApplyActState(int a, string v) { calls.Add("act:" + a); act = a; variant = v; }
+            public void SetObjectState(string id, Vector3 scale, Vector3 pos, Quaternion rot)
+            {
+                calls.Add("state:" + id);
+                states[id] = (scale, pos, rot);
+            }
         }
 
         private static TimelineEvent Cmd(string id, float t, bool transient = false)
@@ -119,6 +126,57 @@ namespace EchoRealm.Film.Tests
             Assert.IsTrue(f.flags.Contains("night"));
             Assert.IsFalse(f.flags.Contains("fog"));  // discarded by rewind
             Assert.IsTrue(f.flags.Contains("fire"));  // new post-rewind future
+        }
+
+        [Test]
+        public void ApplyStateAt_ObjectState_RestoresExactAbsoluteTransform()
+        {
+            var scale = new Vector3(1.7f, 1.7f, 1.7f);
+            var pos = new Vector3(0.2f, -0.1f, 0.4f);
+            var rot = Quaternion.Euler(0f, 35f, 0f);
+
+            var tl = new SceneTimeline();
+            tl.events.Add(new TimelineEvent
+            {
+                kind = EventKind.ObjectState, id = "Cloud", v = pos, v2 = scale, q = rot, t = 1f
+            });
+            var f = new FakeTarget();
+
+            TimelineReplayer.ApplyStateAt(tl, 10f, true, f);
+
+            Assert.IsTrue(f.states.ContainsKey("Cloud"));
+            Assert.AreEqual(scale, f.states["Cloud"].scale); // v2 -> scale
+            Assert.AreEqual(pos, f.states["Cloud"].pos);     // v  -> pos
+            Assert.AreEqual(rot, f.states["Cloud"].rot);     // q  -> rot
+        }
+
+        [Test]
+        public void ApplyStateAt_ObjectState_AfterObjectOp_AbsoluteOverridesRelative()
+        {
+            // A relative scale op, then an absolute hand-grab state for the SAME id.
+            // The later ObjectState is authoritative — it restores an exact transform regardless
+            // of the earlier relative op.
+            var absScale = new Vector3(2.5f, 2.5f, 2.5f);
+            var absPos = new Vector3(0.3f, 0f, 0.1f);
+            var absRot = Quaternion.Euler(0f, 90f, 0f);
+
+            var tl = new SceneTimeline();
+            tl.events.Add(new TimelineEvent { kind = EventKind.ObjectOp, id = "Cloud", i = 0, f = 2f, t = 1f });
+            tl.events.Add(new TimelineEvent
+            {
+                kind = EventKind.ObjectState, id = "Cloud", v = absPos, v2 = absScale, q = absRot, t = 2f
+            });
+            var f = new FakeTarget();
+
+            TimelineReplayer.ApplyStateAt(tl, 10f, true, f);
+
+            // Absolute state present and exact (it wins over the relative op).
+            Assert.IsTrue(f.states.ContainsKey("Cloud"));
+            Assert.AreEqual(absScale, f.states["Cloud"].scale);
+            Assert.AreEqual(absPos, f.states["Cloud"].pos);
+            Assert.AreEqual(absRot, f.states["Cloud"].rot);
+            // The ObjectState was applied after the ObjectOp (chronological order preserved).
+            Assert.Less(f.calls.IndexOf("op:Cloud"), f.calls.IndexOf("state:Cloud"));
         }
     }
 }
