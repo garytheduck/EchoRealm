@@ -1168,6 +1168,203 @@ git commit -m "feat(replay): UnityReplayTarget + CommandExecutor world reset"
 
 ---
 
+### Task 9b: AI-memory rollback (rewound commands must not influence future AI decisions)
+
+**Why:** The AI's variant choice and final monologue read a *separate* cumulative store — `ActionCollector.Profile` (a `PlayerBehaviorProfile`: voice/manipulation/cooperation/gaze/nurture/chaos counts) and `NarrativeManager`'s command logs — NOT the visual timeline. `ActionCollector.ResetForNewAct()` clears only the rolling recent-actions list, never the cumulative profile ([ActionCollector.cs:133](EchoRealm/Assets/Scripts/AI/ActionCollector.cs)). So truncating the timeline alone leaves rewound commands influencing the next AI decision. This task snapshots that memory alongside the timeline and restores it on rewind (spec R9). In-memory only — not part of the saved file (offline playback makes no new AI decisions).
+
+**Files:**
+- Create: `EchoRealm/Assets/Scripts/AI/AiMemoryState.cs`
+- Modify: `EchoRealm/Assets/Scripts/AI/PlayerBehaviorProfile.cs`
+- Modify: `EchoRealm/Assets/Scripts/AI/ActionCollector.cs`
+- Modify: `EchoRealm/Assets/Scripts/AI/NarrativeManager.cs`
+- Modify: `EchoRealm/Assets/Scripts/Film/TimelineRecorder.cs` (from Task 7)
+- Modify: `EchoRealm/Assets/Scripts/Film/FilmDirector.cs`
+
+- [ ] **Step 1: Create the snapshot type**
+
+`EchoRealm/Assets/Scripts/AI/AiMemoryState.cs`:
+```csharp
+using System;
+using System.Collections.Generic;
+
+namespace EchoRealm.AI
+{
+    /// <summary>In-memory snapshot of the AI's accumulated "memory" at a moment in time: the
+    /// cumulative PlayerBehaviorProfile counters + recent actions (ActionCollector) and the command
+    /// logs/mood (NarrativeManager). TimelineRecorder keeps one per event and restores the one at T
+    /// on rewind, so rewound commands stop influencing future AI decisions. Not saved to disk.</summary>
+    [Serializable]
+    public class AiMemoryState
+    {
+        public float t;
+        public int voice, manipulation, cooperation, gaze, nurture, chaos;
+        public List<string> interactedObjects = new List<string>();
+        public List<string> recentActions = new List<string>();
+        public List<string> voiceLog = new List<string>();
+        public List<string> executedLog = new List<string>();
+        public int narrativeCooperation;
+        public string mood = "mysterious";
+    }
+}
+```
+
+- [ ] **Step 2: `PlayerBehaviorProfile` capture/restore** — add inside the class (after `Reset()`, ~line 132). These set the private-setter properties from within the class.
+
+```csharp
+        /// <summary>Copy the cumulative counters into a snapshot (for rewind rollback).</summary>
+        public void CaptureInto(AiMemoryState m)
+        {
+            m.voice = VoiceCommandCount; m.manipulation = ManipulationCount;
+            m.cooperation = CooperationCount; m.gaze = GazeEventCount;
+            m.nurture = NurtureCount; m.chaos = ChaosCount;
+            m.interactedObjects = new List<string>(_interactedObjects);
+        }
+
+        /// <summary>Restore the cumulative counters from a snapshot (rewind rollback).</summary>
+        public void RestoreFrom(AiMemoryState m)
+        {
+            VoiceCommandCount = m.voice; ManipulationCount = m.manipulation;
+            CooperationCount = m.cooperation; GazeEventCount = m.gaze;
+            NurtureCount = m.nurture; ChaosCount = m.chaos;
+            _interactedObjects.Clear();
+            if (m.interactedObjects != null)
+                foreach (var o in m.interactedObjects) _interactedObjects.Add(o);
+        }
+```
+
+- [ ] **Step 3: `ActionCollector` capture/restore** — add inside the class (after `ResetForNewAct`, ~line 139):
+
+```csharp
+        /// <summary>Snapshot the cumulative profile + recent actions at time t (for rewind).</summary>
+        public AiMemoryState CaptureMemory(float t)
+        {
+            var m = new AiMemoryState { t = t };
+            Profile.CaptureInto(m);
+            m.recentActions = new List<string>(_recentActions);
+            return m;
+        }
+
+        /// <summary>Roll the profile + recent actions back to a snapshot (rewind).</summary>
+        public void RestoreMemory(AiMemoryState m)
+        {
+            Profile.RestoreFrom(m);
+            _recentActions.Clear();
+            if (m.recentActions != null) _recentActions.AddRange(m.recentActions);
+        }
+```
+
+- [ ] **Step 4: `NarrativeManager` capture/restore** — add inside the class (after `BuildSessionSummary`, ~line 150). Sets its own private-setter logs from within the class.
+
+```csharp
+        /// <summary>Snapshot the session command logs + mood (for rewind).</summary>
+        public void CaptureInto(AiMemoryState m)
+        {
+            m.voiceLog = new List<string>(VoiceCommandLog);
+            m.executedLog = new List<string>(ExecutedCommandLog);
+            m.narrativeCooperation = CooperationCount;
+            m.mood = CurrentMood;
+        }
+
+        /// <summary>Roll the session command logs + mood back to a snapshot (rewind).</summary>
+        public void RestoreFrom(AiMemoryState m)
+        {
+            VoiceCommandLog = m.voiceLog != null ? new List<string>(m.voiceLog) : new List<string>();
+            ExecutedCommandLog = m.executedLog != null ? new List<string>(m.executedLog) : new List<string>();
+            CooperationCount = m.narrativeCooperation;
+            CurrentMood = m.mood;
+        }
+```
+
+- [ ] **Step 5: `FilmDirector.RewindToAct`** — re-arm the act flow when a rewind lands in an earlier act. Add inside the class (after `SkipToAct`, ~line 155):
+
+```csharp
+        /// <summary>Rewind helper: re-arm the act-flow state machine to the act active at T, so the
+        /// film resumes correctly (and re-makes later AI decisions). Decisions for acts not yet
+        /// reached are cleared. Additive — never called by the live flow.</summary>
+        public void RewindToAct(int act)
+        {
+            IsPlaying = true; IsFinished = false;
+            if (act < 4) _act4Decision = null;
+            if (act < 3) _act3Decision = null;
+            act2Active = (act == 2);
+            if (act == 2) act2StartTime = Time.time;
+        }
+```
+
+- [ ] **Step 6: Extend `TimelineRecorder`** — snapshot AI memory on every event and add the restore. Add `using System.Collections.Generic;` to the top if absent. Add the field (near `Log`):
+
+```csharp
+        private readonly List<AiMemoryState> _aiSnapshots = new List<AiMemoryState>();
+```
+
+Replace the `Handle*` block from Task 7 with these versions (each also snapshots), and add `SnapshotAiMemory` + `RestoreAiMemoryAt`:
+
+```csharp
+        private void HandleWorldCommand(string command) { Log.AddWorldCommand(command, Now()); SnapshotAiMemory(); }
+
+        private void HandleObjectOp(string id, int opType, float factor, Vector3 delta, float degrees)
+        { Log.AddObjectOp(id, opType, factor, delta, degrees, Now()); SnapshotAiMemory(); }
+
+        private void HandleActStarted(int act, string variant)
+        {
+            Log.AddActTransition(act, variant, Now());
+            Log.Timeline.meta.finalAct = act;
+            SnapshotAiMemory();
+        }
+
+        private void HandleSpoke(string text, string mood) { Log.AddUtterance("Oracle", text, Now()); SnapshotAiMemory(); }
+
+        private void HandleSpeech(string text) { Log.AddUtterance("User", text, Now()); SnapshotAiMemory(); }
+
+        private void HandleAIResponse(AICommandResponse r)
+        {
+            if (r == null) return;
+            string cmds = (r.commands != null) ? string.Join(",", r.commands) : "";
+            Log.AddUtterance("AI", $"decided [{cmds}] mood={r.mood}", Now());
+            SnapshotAiMemory();
+        }
+
+        // Capture the AI's cumulative memory at the current time (called after each recorded event).
+        private void SnapshotAiMemory()
+        {
+            var ac = EchoRealm.AI.ActionCollector.Instance;
+            var m = ac != null ? ac.CaptureMemory(Now()) : new AiMemoryState { t = Now() };
+            NarrativeManager.Instance?.CaptureInto(m);
+            _aiSnapshots.Add(m);
+        }
+
+        /// <summary>Rewind: restore the AI's memory to the latest snapshot at or before t (empty
+        /// baseline if none), and drop snapshots after t. Called by FilmSync.DoRewind.</summary>
+        public void RestoreAiMemoryAt(float t)
+        {
+            AiMemoryState chosen = null;
+            for (int k = 0; k < _aiSnapshots.Count; k++)
+            {
+                if (_aiSnapshots[k].t <= t) chosen = _aiSnapshots[k];
+                else break;
+            }
+            var state = chosen ?? new AiMemoryState { t = 0f }; // before first command → empty
+            EchoRealm.AI.ActionCollector.Instance?.RestoreMemory(state);
+            NarrativeManager.Instance?.RestoreFrom(state);
+
+            for (int k = _aiSnapshots.Count - 1; k >= 0; k--)
+                if (_aiSnapshots[k].t > t) _aiSnapshots.RemoveAt(k);
+        }
+```
+
+- [ ] **Step 7: Compile check** — recompile in the editor, no errors.
+
+- [ ] **Step 8: Manual integration test** — in `MainScene` Play mode with `TimelineRecorder` present: give 5 nurturing debug voice commands (e.g. `ProcessDebugInput("grow a tree")` ×5). Confirm `ActionCollector.Instance.Profile.VoiceCommandCount == 5`. Then call `TimelineRecorder.Instance.RestoreAiMemoryAt(t3)` where `t3` is the timestamp around the 3rd command (read it from `TimelineRecorder.Instance.Timeline.events`). Confirm `VoiceCommandCount` drops to `3` and `NurtureCount` reflects only the first 3. This proves rewound commands stop counting toward AI decisions.
+
+- [ ] **Step 9: Commit**
+
+```powershell
+git add "EchoRealm/Assets/Scripts/AI/AiMemoryState.cs" "EchoRealm/Assets/Scripts/AI/PlayerBehaviorProfile.cs" "EchoRealm/Assets/Scripts/AI/ActionCollector.cs" "EchoRealm/Assets/Scripts/AI/NarrativeManager.cs" "EchoRealm/Assets/Scripts/Film/TimelineRecorder.cs" "EchoRealm/Assets/Scripts/Film/FilmDirector.cs"
+git commit -m "feat(rewind): roll back AI behavioral memory on rewind (R9)"
+```
+
+---
+
 ## Phase D — Live rewind (networked)
 
 ### Task 10: FilmSync rewind entry point + broadcast
@@ -1212,6 +1409,7 @@ Reuses the existing idempotent `RPC_SetObjectState` and `WorldStateCsv` path. Th
             IsRewinding = true;
 
             recorder.TruncateAfter(t);
+            recorder.RestoreAiMemoryAt(t);   // roll the AI's behavioral memory back to T (spec R9)
             var target = new EchoRealm.Film.UnityReplayTarget();
             EchoRealm.Film.TimelineReplayer.ApplyStateAt(recorder.Timeline, t, seeking: true, target);
 
@@ -1236,6 +1434,7 @@ Reuses the existing idempotent `RPC_SetObjectState` and `WorldStateCsv` path. Th
             WorldStateCsv = TrimWorldCsv();
 
             CurrentAct = ActManager.Instance != null ? ActManager.Instance.CurrentAct : CurrentAct;
+            EchoRealm.Film.FilmDirector.Instance?.RewindToAct(CurrentAct); // re-arm the act flow to T (spec R9)
 
             RPC_RewindApply(t, CurrentAct, ChosenVariant.ToString(), WorldStateCsv.ToString());
             foreach (var kv in _objStates)
@@ -1941,6 +2140,7 @@ git commit -m "feat(replay): offline view-only playback (gate, controller, UI)"
 
 - [ ] All EditMode tests pass (`Test Runner → EditMode → Run All`).
 - [ ] With NO `TimelineRecorder`/`ReplayModeGate` in the scene, the film boots and plays exactly as before (isolation/regression check).
+- [ ] After a live rewind, `ActionCollector.Profile.VoiceCommandCount` (and nurture/chaos counts) reflect only commands up to T — rewound commands no longer sway the next AI variant decision (spec R9).
 - [ ] Live: rewind 20s/1m on the master syncs both headsets; film continues from T.
 - [ ] Save at end writes `scene_*.json` + `.txt` to `EchoRealmSaves`.
 - [ ] Offline: pick a save → final diorama + read-only banner; step/rewind works; transcript shows what the AI said/decided; nothing is grabbable.

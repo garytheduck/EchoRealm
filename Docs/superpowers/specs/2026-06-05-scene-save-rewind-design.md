@@ -43,6 +43,7 @@ Key realization from the codebase: the **late-join system already reconstructs t
 | R6 | **Save trigger:** decided **once, at scene end** (Act 4 completes or `EndFilm`) via a `Save / Discard` prompt. Recording itself runs throughout; only persistence is end-of-scene. |
 | R7 | **Rewind available in both contexts:** live (during the actual scene) and during saved-scene playback (offline player mirrors the live Rewind 20s / 1m controls plus a scrubber). |
 | R8 | **Isolation:** the whole subsystem is additive and self-contained. If removed/disabled, the film behaves byte-for-byte as today. |
+| R9 | **AI-memory rollback:** rewinding also rolls the AI's behavioral memory back to T — the cumulative `PlayerBehaviorProfile` (in `ActionCollector`) + `NarrativeManager`'s command logs — so rewound commands do NOT influence future AI variant decisions or the final monologue. Commands given after the rewind count normally. |
 
 ## 4. Architecture overview — Approach A (event timeline + replay)
 
@@ -83,7 +84,7 @@ public enum EventKind { WorldCommand, ObjectOp, ActTransition, AiUtterance }
 ## 6. Components
 
 **New:**
-- `TimelineRecorder` — master-side observer. Subscribes to source events and appends `TimelineEvent`s. Never calls back into the film.
+- `TimelineRecorder` — master-side observer. Subscribes to source events and appends `TimelineEvent`s. Never calls back into the film. Also snapshots the AI's memory (ActionCollector + NarrativeManager) at each event and exposes `RestoreAiMemoryAt(t)` for rewind.
 - `TimelineReplayer` — pure engine: `ApplyStateAt(timeline, upTo, seeking)`. Operates via `CommandExecutor.ExecuteCommand`, `ManipulableObject` ops, and `ActManager.ApplyActState`. Core logic is also exposed over an abstract state model for headless unit testing.
 - `SceneArchive` — `Save()` / `List()` / `Load(name)`; JSON in `Application.persistentDataPath/EchoRealmSaves/`. Also writes `SessionLogger.ExportLog()` text alongside as `.txt`.
 - `ReplaySessionController` — offline view-only driver: loads an archive, drives a scrub index, enforces view-only, hosts the timeline UI + AI transcript panel.
@@ -97,6 +98,8 @@ public enum EventKind { WorldCommand, ObjectOp, ActTransition, AiUtterance }
 - `FilmDirector.EndFilm()` → one-line trigger of the end-of-scene Save/Discard prompt.
 - `EchoRealmBootstrapper` → one early branch: `if (replayMode) { startReplay(); return; }`.
 - `ManipulableRegistry` → new additive getter exposing the registered props (read-only enumeration) so `ResetToBaseline` can reset them all; existing `FindById`/`Resolve` untouched.
+- `ActionCollector` / `NarrativeManager` / `PlayerBehaviorProfile` → additive capture/restore methods so the AI's accumulated memory can be snapshotted and rolled back on rewind (R9). Existing record/query paths untouched.
+- `FilmDirector` → additive `RewindToAct(int)` to re-arm the act flow when a rewind crosses an act boundary.
 
 ## 7. Capture map
 
@@ -130,6 +133,7 @@ Determinism holds because op clamps are relative to per-object originals capture
 1. User taps `Rewind 20s/1m` on the hand-menu. On master → act directly; on client → RPC to master.
 2. Master computes `T = max(0, filmTime − seconds)`; raises a brief internal **"rewinding" guard** (NOT `WorldPocket`, to avoid the "any speech unpockets" behavior).
 3. Master truncates its timeline to ≤ T, then `ResetToBaseline()` + replay ≤ T → recomputes authoritative `_objStates`, world flags, current act.
+   - **Restores the AI's behavioral memory to T (R9):** `TimelineRecorder.RestoreAiMemoryAt(T)` rolls back `ActionCollector.Profile` (voice/nurture/chaos/etc. counts + recent actions) and `NarrativeManager`'s command logs to the snapshot taken at T, and `FilmDirector.RewindToAct` re-arms the act flow. Why this is necessary: the AI's variant choice reads this cumulative profile, NOT the visual timeline, and `ResetForNewAct` never clears the cumulative profile — so truncating the timeline alone would leave rewound commands influencing the next AI decision.
 4. Master broadcasts the resulting **absolute** state: `RPC_SetObjectState` per prop (idempotent), world-command CSV path for environment, quiet `ApplyActState` for the act — tied together by one new `RPC_RewindApply`.
 5. Guard released. Live film continues from T; new events append; the discarded tail is gone (R5).
 
@@ -189,6 +193,6 @@ The engine is pure/deterministic → most tests run **without a headset**:
 - **Scene-version migration:** strategy if the prop hierarchy changes between save and load beyond a friendly warning.
 
 ## 15. File inventory (for the implementation plan)
-**New scripts** (under `EchoRealm/Assets/Scripts/`): `Film/TimelineRecorder.cs`, `Film/TimelineReplayer.cs`, `Film/SceneArchive.cs`, `Film/ReplaySessionController.cs`, `Film/SceneTimeline.cs` (data types), `Interaction/RewindMenu.cs`, `Interaction/ReplayUI.cs`.
+**New scripts** (under `EchoRealm/Assets/Scripts/`): `Film/TimelineRecorder.cs`, `Film/TimelineReplayer.cs`, `Film/SceneArchive.cs`, `Film/ReplaySessionController.cs`, `Film/SceneTimeline.cs` (data types), `Interaction/RewindMenu.cs`, `Interaction/ReplayUI.cs`, `AI/AiMemoryState.cs`.
 **New tests:** EditMode assembly for `TimelineReplayer` + `SceneArchive` round-trip + recorder capture.
-**Touched (additive):** `Characters/OracleController.cs`, `Networking/FilmSync.cs`, `Film/ActManager.cs`, `Film/FilmDirector.cs`, `Film/EchoRealmBootstrapper.cs`, `Interaction/ManipulableRegistry.cs` (expose an enumeration of registered props for `ResetToBaseline`).
+**Touched (additive):** `Characters/OracleController.cs`, `Networking/FilmSync.cs`, `Film/ActManager.cs`, `Film/FilmDirector.cs`, `Film/EchoRealmBootstrapper.cs`, `Interaction/ManipulableRegistry.cs` (expose an enumeration of registered props for `ResetToBaseline`), and for AI-memory rollback (R9): `AI/PlayerBehaviorProfile.cs`, `AI/ActionCollector.cs`, `AI/NarrativeManager.cs`.
