@@ -74,7 +74,23 @@ namespace EchoRealm.Interaction
             tmp.enableAutoSizing = true; tmp.fontSizeMin = 0.01f; tmp.fontSizeMax = 0.05f;
 
             var si = root.AddComponent<StatefulInteractable>();
-            si.OnClicked.AddListener(onClick);
+            var baseColor = mat.color;
+            si.OnClicked.AddListener(() => { onClick(); StartCoroutine(FlashPress(mat, baseColor)); });
+        }
+
+        // Brief bright flash on click so a press feels registered, then ease back to the base colour.
+        private System.Collections.IEnumerator FlashPress(Material mat, Color baseColor)
+        {
+            if (mat == null) yield break;
+            var flash = new Color(0.85f, 0.65f, 1f, 1f);
+            const float dur = 0.3f;
+            for (float t = 0f; t < dur; t += Time.unscaledDeltaTime)
+            {
+                if (mat == null) yield break;
+                mat.color = Color.Lerp(flash, baseColor, t / dur);
+                yield return null;
+            }
+            if (mat != null) mat.color = baseColor;
         }
     }
 }

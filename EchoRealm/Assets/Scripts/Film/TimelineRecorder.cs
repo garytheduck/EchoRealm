@@ -78,25 +78,51 @@ namespace EchoRealm.Film
             return Time.time - _startTime;
         }
 
-        private void HandleWorldCommand(string command) { Log.AddWorldCommand(command, Now()); SnapshotAiMemory(); }
+        // While a rewind is reconstructing the scene, CommandExecutor re-fires OnCommandExecuted for the
+        // reset + replay commands. Those are NOT new player actions — ignore ALL capture during a rewind,
+        // otherwise the rewind pollutes its own timeline and corrupts subsequent rewinds.
+        private static bool RewindInProgress =>
+            EchoRealm.Networking.FilmSync.Instance != null && EchoRealm.Networking.FilmSync.Instance.IsRewinding;
+
+        private void HandleWorldCommand(string command)
+        {
+            if (RewindInProgress) return;
+            Log.AddWorldCommand(command, Now());
+            SnapshotAiMemory();
+        }
 
         private void HandleObjectOp(string id, int opType, float factor, Vector3 delta, float degrees)
-        { Log.AddObjectOp(id, opType, factor, delta, degrees, Now()); SnapshotAiMemory(); }
+        {
+            if (RewindInProgress) return;
+            Log.AddObjectOp(id, opType, factor, delta, degrees, Now());
+            SnapshotAiMemory();
+        }
 
         private void HandleActStarted(int act, string variant)
         {
+            if (RewindInProgress) return;
             Log.AddActTransition(act, variant, Now());
             Log.Timeline.meta.finalAct = act;
             SnapshotAiMemory();
         }
 
-        private void HandleSpoke(string text, string mood) { Log.AddUtterance("Oracle", text, Now()); SnapshotAiMemory(); }
+        private void HandleSpoke(string text, string mood)
+        {
+            if (RewindInProgress) return;
+            Log.AddUtterance("Oracle", text, Now());
+            SnapshotAiMemory();
+        }
 
-        private void HandleSpeech(string text) { Log.AddUtterance("User", text, Now()); SnapshotAiMemory(); }
+        private void HandleSpeech(string text)
+        {
+            if (RewindInProgress) return;
+            Log.AddUtterance("User", text, Now());
+            SnapshotAiMemory();
+        }
 
         private void HandleAIResponse(AICommandResponse r)
         {
-            if (r == null) return;
+            if (RewindInProgress || r == null) return;
             string cmds = (r.commands != null) ? string.Join(",", r.commands) : "";
             Log.AddUtterance("AI", $"decided [{cmds}] mood={r.mood}", Now());
             SnapshotAiMemory();
