@@ -45,6 +45,11 @@ namespace EchoRealm.Film
 
         private bool qrAnchorHandled = false;
 
+        [Header("Replay Gate (optional)")]
+        [Tooltip("Assign a ReplayModeGate in the scene to show a Live/Replay chooser at startup. " +
+                 "If left empty the live boot proceeds immediately as before.")]
+        [SerializeField] private ReplayModeGate replayGate;
+
         private enum BootState
         {
             WaitingForQRAnchor,
@@ -58,6 +63,16 @@ namespace EchoRealm.Film
         private BootState currentState = BootState.WaitingForQRAnchor;
 
         private void Start()
+        {
+            if (replayGate == null) replayGate = FindObjectOfType<ReplayModeGate>(true);
+            if (replayGate != null) { replayGate.ShowChooser(); return; } // user picks Live vs Saved
+            BeginLiveBoot(); // no gate present → behave exactly as before
+        }
+
+        /// <summary>Original live-film boot sequence. Public so ReplayModeGate can invoke it when
+        /// the user selects "Start Live Film". When no ReplayModeGate is in the scene, Start()
+        /// calls this directly — zero change to existing boot behaviour.</summary>
+        public void BeginLiveBoot()
         {
             SetStatus("Scanning for QR code...\nPoint your HoloLens at the QR anchor.");
 
