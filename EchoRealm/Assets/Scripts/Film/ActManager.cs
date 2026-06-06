@@ -53,6 +53,10 @@ namespace EchoRealm.Film
         /// <summary>Fired when an act completes.</summary>
         public event Action<int> OnActCompleted;
 
+        /// <summary>Fired when an act starts (act number, variant). Observational — used by
+        /// TimelineRecorder. No effect if unsubscribed.</summary>
+        public static event System.Action<int, string> OnActStarted;
+
         public static ActManager Instance { get; private set; }
 
         private void Awake()
@@ -80,6 +84,7 @@ namespace EchoRealm.Film
 
             CurrentAct    = actNumber;
             CurrentDecision = decision;
+            OnActStarted?.Invoke(actNumber, decision?.chosen_variant ?? "default");
 
             string variant = decision?.chosen_variant ?? "default";
             Log($"=== ACT {actNumber} STARTED (variant: {variant}) ===");

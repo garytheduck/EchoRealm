@@ -63,6 +63,10 @@ namespace EchoRealm.Characters
         /// <summary>Current Oracle mood.</summary>
         public string CurrentMood { get; private set; } = "mysterious";
 
+        /// <summary>Fired whenever the Oracle speaks a line (text, mood). Observational — used
+        /// by TimelineRecorder to capture "what the AI said". No effect if unsubscribed.</summary>
+        public static event System.Action<string, string> OnSpoke;
+
         public static OracleController Instance { get; private set; }
 
         private Material sphereMaterial;
@@ -121,6 +125,7 @@ namespace EchoRealm.Characters
             if (voice != null) voice.Speak(text);
             currentPulseSpeed = speakingPulseSpeed;
             Log($"Oracle speaks: \"{text}\"");
+            OnSpoke?.Invoke(text, CurrentMood);
         }
 
         /// <summary>
@@ -130,6 +135,7 @@ namespace EchoRealm.Characters
         public void SpeakDramatic(string text, float wordsPerSecond = 3f)
         {
             if (voice != null) voice.Speak(text);
+            OnSpoke?.Invoke(text, CurrentMood);
             StartCoroutine(DramaticSpeechCoroutine(text, wordsPerSecond));
         }
 

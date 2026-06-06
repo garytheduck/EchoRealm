@@ -21,6 +21,11 @@ namespace EchoRealm.Networking
         /// <summary>Singleton — set on every device in Spawned().</summary>
         public static FilmSync Instance { get; private set; }
 
+        /// <summary>Fired on every device after an object op is applied (id, opType, factor,
+        /// delta, degrees). Observational — used by TimelineRecorder on the master. No effect
+        /// if unsubscribed.</summary>
+        public static event System.Action<string, int, float, Vector3, float> OnObjectOpApplied;
+
         // Minimal late-join snapshot. Live transitions go via RPC_StartAct.
         [Networked] public int CurrentAct { get; set; }
         [Networked] public NetworkString<_16> ChosenVariant { get; set; }
@@ -380,6 +385,7 @@ namespace EchoRealm.Networking
                 mo.GetLocal(out var s, out var p, out var r);
                 _objStates[id] = new ObjState { scale = s, pos = p, rot = r };
             }
+            OnObjectOpApplied?.Invoke(id, opType, factor, delta, degrees);
         }
 
         // Late join: a joining client asks; the master re-sends every manipulated object's absolute
