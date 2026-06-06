@@ -63,10 +63,11 @@ namespace EchoRealm.Interaction
 
             var mgr = _om.interactionManager;
 
-            // 1) World grab keeps every collider EXCEPT the protected subtrees.
+            // 1) World grab keeps colliders that are NEITHER protected NOR part of a prop that has its
+            //    OWN ObjectManipulator (those grab individually). Everything else grabs the whole world.
             var keep = new List<Collider>();
             foreach (var c in GetComponentsInChildren<Collider>(true))
-                if (!IsProtected(c.transform)) keep.Add(c);
+                if (!IsProtected(c.transform) && !HasOwnManipulator(c.transform)) keep.Add(c);
 
             if (mgr != null) mgr.UnregisterInteractable(_om as IXRInteractable);
             _om.colliders.Clear();
@@ -94,6 +95,16 @@ namespace EchoRealm.Interaction
         {
             foreach (var p in protectedObjects)
                 if (p != null && (t == p || t.IsChildOf(p))) return true;
+            return false;
+        }
+
+        // True if this collider belongs to a descendant prop with its OWN ObjectManipulator, so it
+        // should grab individually rather than move the whole world. The walk stops at this transform
+        // (SceneRoot), so SceneRoot's own grab collider is still kept for the world grab.
+        private bool HasOwnManipulator(Transform t)
+        {
+            for (Transform x = t; x != null && x != transform; x = x.parent)
+                if (x.GetComponent<ObjectManipulator>() != null) return true;
             return false;
         }
 
