@@ -47,6 +47,12 @@ namespace EchoRealm.AI
         /// <summary>Fired when AI finishes processing and returns commands.</summary>
         public event Action<AICommandResponse> OnAIResponseReceived;
 
+        /// <summary>Optional first-chance interceptor for raw recognized speech. If it returns true,
+        /// the utterance is fully consumed and is NOT forwarded to the AI / narrative / ActionCollector
+        /// pipeline. Lets isolated modules (e.g. the ball sandbox) handle their own voice phrases
+        /// without coupling this class to them. Null by default. Set by EchoRealm.Sandbox.BallVoiceHook.</summary>
+        public static System.Func<string, bool> SpeechInterceptor;
+
         public static VoiceCommandProcessor Instance { get; private set; }
 
 #if WINDOWS_UWP
@@ -263,6 +269,11 @@ namespace EchoRealm.AI
         {
             LastRecognizedText = text;
             OnSpeechRecognized?.Invoke(text);
+
+            // Isolated modules get first refusal on the raw utterance. If one consumes it, it dies
+            // here — never reaching the AI, FilmSync, or ActionCollector. Keeps the ball sandbox
+            // invisible to the narrative/variant decision.
+            if (SpeechInterceptor != null && SpeechInterceptor(text)) return;
 
             // Meta-commands handled locally (pocket / unpocket the whole scene) — they bypass the
             // AI/network command pipeline. The speech recognizer often splits "unpocket" into
