@@ -44,6 +44,7 @@ Key realization from the codebase: the **late-join system already reconstructs t
 | R7 | **Rewind available in both contexts:** live (during the actual scene) and during saved-scene playback (offline player mirrors the live Rewind 20s / 1m controls plus a scrubber). |
 | R8 | **Isolation:** the whole subsystem is additive and self-contained. If removed/disabled, the film behaves byte-for-byte as today. |
 | R9 | **AI-memory rollback:** rewinding also rolls the AI's behavioral memory back to T — the cumulative `PlayerBehaviorProfile` (in `ActionCollector`) + `NarrativeManager`'s command logs — so rewound commands do NOT influence future AI variant decisions or the final monologue. Commands given after the rewind count normally. |
+| R10 | **Hand-grab capture:** direct hand manipulations of props (MRTK `ObjectManipulator`), not just voice "Claude…" ops, are recorded as absolute `ObjectState` events, so a hand-moved/resized prop saves and rewinds to its state at T. Requires `ManipulableRegistry` to be live (it provides the props + stable ids). |
 
 ## 4. Architecture overview — Approach A (event timeline + replay)
 

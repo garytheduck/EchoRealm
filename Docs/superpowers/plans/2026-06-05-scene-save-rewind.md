@@ -1613,6 +1613,88 @@ git commit -m "feat(rewind): live hand-menu (Rewind 20s / 1m)"
 
 ---
 
+### Task 11c: Record hand-grab manipulations (so they save & rewind)
+
+**Why:** Only voice-"Claude" object ops (via `FilmSync.RPC_ApplyObjectOp`) are captured today. A direct MRTK hand-grab of a prop moves its transform locally and is invisible to the timeline — so it neither saves nor rewinds (spec R10). This records each hand-manipulation's **resulting absolute transform** as a new `ObjectState` event; replay/rewind restores it via `ManipulableObject.SetLocal`. Absolute (not relative) because a hand-grab is free-form. **Depends on `ManipulableRegistry` being live** (provides props + ids).
+
+**Files:** `Film/Timeline/SceneTimeline.cs`, `TimelineLog.cs`, `IReplayTarget.cs`, `TimelineReplayer.cs`, `Film/UnityReplayTarget.cs`, `Film/TimelineRecorder.cs`, `Tests/EditMode/TimelineReplayerTests.cs`.
+
+- [ ] **Step 1 — data model (`SceneTimeline.cs`):** add `ObjectState` to `EventKind`, and two fields to `TimelineEvent`:
+```csharp
+    public enum EventKind { WorldCommand, ObjectOp, ActTransition, AiUtterance, ObjectState }
+```
+```csharp
+        public Vector3 v2;       // ObjectState: absolute local scale (v = pos, q = rot)
+        public Quaternion q;     // ObjectState: absolute local rotation
+```
+
+- [ ] **Step 2 — `TimelineLog.cs`:** add
+```csharp
+        public void AddObjectState(string id, Vector3 scale, Vector3 pos, Quaternion rot, float t)
+        {
+            Timeline.events.Add(new TimelineEvent
+            {
+                t = t, kind = EventKind.ObjectState, id = id, v = pos, v2 = scale, q = rot
+            });
+        }
+```
+
+- [ ] **Step 3 — `IReplayTarget.cs`:** add `void SetObjectState(string id, Vector3 scale, Vector3 pos, Quaternion rot);`
+
+- [ ] **Step 4 — `TimelineReplayer.cs`:** add a case to the switch:
+```csharp
+                    case EventKind.ObjectState:
+                        target.SetObjectState(e.id, e.v2, e.v, e.q);
+                        break;
+```
+
+- [ ] **Step 5 — tests (`TimelineReplayerTests.cs`):** add `SetObjectState` to `FakeTarget` (record into a `Dictionary<string,(Vector3 scale,Vector3 pos,Quaternion rot)>`), and add a test: an `ObjectState` event replays to the exact absolute transform, and a later `ObjectState` for the same id overrides an earlier `ObjectOp`. Run EditMode → green.
+
+- [ ] **Step 6 — `UnityReplayTarget.cs`:** implement
+```csharp
+        public void SetObjectState(string id, Vector3 scale, Vector3 pos, Quaternion rot)
+        {
+            var mo = ManipulableRegistry.Instance?.FindById(id);
+            if (mo != null) mo.SetLocal(scale, pos, rot);
+        }
+```
+
+- [ ] **Step 7 — `TimelineRecorder.cs`:** add `using MixedReality.Toolkit.SpatialManipulation;`. In `Start()`, also `StartCoroutine(HookManipulablesWhenReady());`. Add:
+```csharp
+        private System.Collections.IEnumerator HookManipulablesWhenReady()
+        {
+            // ManipulableRegistry registers props in its own Start(); wait until it's populated.
+            float timeout = 5f;
+            while (timeout > 0f && (ManipulableRegistry.Instance == null))
+            { timeout -= Time.deltaTime; yield return null; }
+            yield return null; // let registration finish
+            var reg = ManipulableRegistry.Instance;
+            if (reg == null) yield break;
+            foreach (var mo in reg.All)
+            {
+                if (mo == null) continue;
+                var om = mo.GetComponent<ObjectManipulator>();
+                if (om == null) continue;
+                var captured = mo;
+                om.lastSelectExited.AddListener(_ => OnPropManipulated(captured));
+            }
+        }
+
+        // A hand-grab of a prop ended — record its resulting absolute local transform.
+        private void OnPropManipulated(ManipulableObject mo)
+        {
+            if (RewindInProgress || mo == null) return;
+            mo.GetLocal(out var s, out var p, out var r);
+            Log.AddObjectState(mo.Id, s, p, r, Now());
+            SnapshotAiMemory();
+        }
+```
+> `ManipulableObject` is in `EchoRealm.Interaction` — add `using EchoRealm.Interaction;` if not present. `lastSelectExited` is the MRTK/XRI manipulation-end event (same one `SceneManipulationReporter` uses).
+
+- [ ] **Step 8 — commit:** `git add` the 7 files; `git commit -m "feat(rewind): record hand-grab manipulations as ObjectState events (R10)"`.
+
+---
+
 ## Phase E — Save at end of scene
 
 ### Task 12: End-of-scene Save/Discard prompt + EndFilm hook
@@ -1674,7 +1756,8 @@ namespace EchoRealm.Film
         {
             var cam = Camera.main; if (cam == null) return;
             _go.transform.position = cam.transform.position + cam.transform.forward * 0.7f;
-            _go.transform.rotation = Quaternion.LookRotation(_go.transform.position - cam.transform.position);
+            // Face the user (+Z toward the camera) so the prompt reads correctly. Placed once, then fixed.
+            _go.transform.rotation = Quaternion.LookRotation(cam.transform.position - _go.transform.position, Vector3.up);
         }
 
         private void Build()
