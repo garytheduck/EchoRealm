@@ -62,6 +62,9 @@ namespace EchoRealm.Networking
         private readonly System.Collections.Generic.Dictionary<string, ObjState> _objStates =
             new System.Collections.Generic.Dictionary<string, ObjState>();
 
+        // True only during a rewind apply, so live writes/AI don't fight the reconstruction.
+        public bool IsRewinding { get; private set; }
+
         public override void Spawned()
         {
             Instance = this;
@@ -112,6 +115,7 @@ namespace EchoRealm.Networking
         {
             if (!syncSceneTransform || !HasStateAuthority) return;
             if (IsPocketed) return;            // the pocket owns the transform while hidden
+            if (IsRewinding) return;
             if (!TryGetSceneRefs()) return;
             if (IsLocallyManipulating())
                 PublishSceneTransform(force: false);
@@ -444,6 +448,100 @@ namespace EchoRealm.Networking
         {
             if (pocketed) WorldPocket.Instance?.ApplyPocket();
             else          WorldPocket.Instance?.ApplyUnpocket();
+        }
+
+        // ------------------------------------------------------------------
+        // Rewind — jump the shared world back to its state N seconds ago
+        // ------------------------------------------------------------------
+
+        /// <summary>Any device asks to rewind; only the master computes + broadcasts it.</summary>
+        public void RequestRewind(float seconds)
+        {
+            if (HasStateAuthority) DoRewind(seconds);
+            else RPC_RequestRewind(seconds);
+        }
+
+        [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
+        private void RPC_RequestRewind(float seconds) => DoRewind(seconds);
+
+        // Master only: truncate the timeline to T, replay locally, broadcast absolute state.
+        private void DoRewind(float seconds)
+        {
+            if (!HasStateAuthority) return;
+            var recorder = EchoRealm.Film.TimelineRecorder.Instance;
+            if (recorder == null) return;
+
+            float t = Mathf.Max(0f, recorder.CurrentTime - seconds);
+            IsRewinding = true;
+
+            recorder.TruncateAfter(t);
+            recorder.RestoreAiMemoryAt(t);   // roll the AI's behavioral memory back to T (spec R9)
+            var target = new EchoRealm.Film.UnityReplayTarget();
+            EchoRealm.Film.TimelineReplayer.ApplyStateAt(recorder.Timeline, t, seeking: true, target);
+
+            // Rebuild authoritative per-object state from the reconstructed scene, then push to peers.
+            _objStates.Clear();
+            var reg = ManipulableRegistry.Instance;
+            if (reg != null)
+            {
+                foreach (var mo in reg.All)
+                {
+                    if (mo == null) continue;
+                    mo.GetLocal(out var s, out var p, out var r);
+                    _objStates[mo.Id] = new ObjState { scale = s, pos = p, rot = r };
+                }
+            }
+
+            // Recompute the world-state CSV from the surviving WorldCommand events.
+            _worldCommandLog.Clear();
+            foreach (var e in recorder.Timeline.events)
+                if (e.kind == EchoRealm.Film.EventKind.WorldCommand && !e.transient)
+                    _worldCommandLog.Add(e.id);
+            WorldStateCsv = TrimWorldCsv();
+
+            CurrentAct = ActManager.Instance != null ? ActManager.Instance.CurrentAct : CurrentAct;
+            EchoRealm.Film.FilmDirector.Instance?.RewindToAct(CurrentAct); // re-arm the act flow to T (spec R9)
+
+            RPC_RewindApply(t, CurrentAct, ChosenVariant.ToString(), WorldStateCsv.ToString());
+            foreach (var kv in _objStates)
+                RPC_SetObjectState(kv.Key, kv.Value.scale, kv.Value.pos, kv.Value.rot);
+
+            IsRewinding = false;
+            Debug.Log($"[FilmSync] Rewound to t={t:F1}s ({seconds:F0}s back).");
+        }
+
+        // Every device: reset to baseline, replay world + act state to T. Objects arrive via RPC_SetObjectState.
+        [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
+        private void RPC_RewindApply(float t, int act, string variant, string worldCsv)
+        {
+            var reg = ManipulableRegistry.Instance;
+            if (reg != null)
+                foreach (var mo in reg.All)
+                    if (mo != null) mo.ResetTransform();
+
+            CommandExecutor.Instance?.ResetWorldToDefaults();
+            ActManager.Instance?.ApplyActState(act, variant);
+
+            var exec = CommandExecutor.Instance;
+            if (exec != null && !string.IsNullOrEmpty(worldCsv))
+                foreach (var raw in worldCsv.Split(','))
+                {
+                    string cmd = raw.Trim();
+                    if (cmd.Length > 0) exec.ExecuteCommand(cmd);
+                }
+        }
+
+        // Cap the world CSV to the networked-string budget (most-recent wins) — same rule as RecordAndPublishWorldState.
+        private NetworkString<_512> TrimWorldCsv()
+        {
+            int start = 0;
+            string csv = string.Join(",", _worldCommandLog);
+            while (csv.Length > MaxWorldStateChars && start < _worldCommandLog.Count - 1)
+            {
+                start++;
+                csv = string.Join(",", _worldCommandLog.GetRange(start, _worldCommandLog.Count - start));
+            }
+            return csv;
         }
     }
 }
