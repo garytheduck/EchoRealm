@@ -139,6 +139,10 @@ using UnityEngine;
 
 namespace EchoRealm.Film
 {
+    /// <summary>Mirror of EchoRealm.Interaction.ObjOpType for the headless core (which cannot
+    /// reference Assembly-CSharp). Values MUST match ObjOpType: Scale=0, Move=1, Rotate=2, Reset=3.</summary>
+    internal enum ReplayObjOp { Scale = 0, Move = 1, Rotate = 2, Reset = 3 }
+
     /// <summary>Kinds of recorded events. WorldCommand/ObjectOp/ActTransition affect scene
     /// state on replay; AiUtterance is transcript-only (no scene effect).</summary>
     public enum EventKind { WorldCommand, ObjectOp, ActTransition, AiUtterance }
@@ -323,12 +327,23 @@ namespace EchoRealm.Film.Tests
         public void AddObjectOp_StoresScalarAndDelta()
         {
             var log = new TimelineLog();
-            log.AddObjectOp("Cloud01", 0, 1.2f, new Vector3(0.1f, 0, 0), 3f);
+            log.AddObjectOp("Cloud01", 0, 1.2f, new Vector3(0.1f, 0, 0), 0f, 2f);
             var e = log.Timeline.events[0];
             Assert.AreEqual(EventKind.ObjectOp, e.kind);
             Assert.AreEqual("Cloud01", e.id);
-            Assert.AreEqual(1.2f, e.f);
+            Assert.AreEqual(1.2f, e.f, 1e-5f);
             Assert.AreEqual(new Vector3(0.1f, 0, 0), e.v);
+            Assert.AreEqual(2f, e.t, 1e-5f);
+        }
+
+        [Test]
+        public void AddObjectOp_Rotate_RoutesDegreesToScalar()
+        {
+            var log = new TimelineLog();
+            log.AddObjectOp("Cloud01", 2 /*Rotate*/, 1f, Vector3.zero, 45f, 3f);
+            var e = log.Timeline.events[0];
+            Assert.AreEqual(45f, e.f, 1e-5f); // degrees routed into the scalar field for Rotate
+            Assert.AreEqual(3f, e.t, 1e-5f);
         }
 
         [Test]
@@ -373,10 +388,10 @@ namespace EchoRealm.Film
             });
         }
 
-        public void AddObjectOp(string id, int opType, float factor, Vector3 delta, float degrees, float t = 0f)
+        public void AddObjectOp(string id, int opType, float factor, Vector3 delta, float degrees, float t)
         {
-            // One scalar field carries factor (Scale) OR degrees (Rotate); Move uses the delta.
-            float scalar = opType == 2 /*Rotate*/ ? degrees : factor;
+            // One scalar field carries factor (Scale) OR degrees (Rotate); Move/Reset use the delta.
+            float scalar = opType == (int)ReplayObjOp.Rotate ? degrees : factor;
             Timeline.events.Add(new TimelineEvent
             {
                 t = t, kind = EventKind.ObjectOp, id = id, i = opType, f = scalar, v = delta
@@ -410,7 +425,7 @@ namespace EchoRealm.Film
 }
 ```
 
-> Note: `AddObjectOp` uses the literal `2` for Rotate to stay free of the Assembly-CSharp `ObjOpType` enum. The recorder (Task 6) passes `(int)ObjOpType.X`, and `ObjOpType` order is Scale=0, Move=1, Rotate=2, Reset=3. If your `ObjOpType` enum differs, adjust this single constant and the comment.
+> Note: `AddObjectOp` resolves the op type via the core-local `ReplayObjOp` enum (defined in `SceneTimeline.cs`) to avoid a hard dependency on the Assembly-CSharp `ObjOpType`. The recorder (Task 7) passes `(int)ObjOpType.X`. `ReplayObjOp` MUST mirror `ObjOpType` (Scale=0, Move=1, Rotate=2, Reset=3) — Task 3 Step 5 verifies this. `t` is required (no default) so events can never be silently recorded at t=0.
 
 - [ ] **Step 4: Run the test — verify it PASSES.**
 
