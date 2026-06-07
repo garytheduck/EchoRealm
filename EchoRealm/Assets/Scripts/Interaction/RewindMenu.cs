@@ -64,11 +64,11 @@ namespace EchoRealm.Interaction
             root.transform.localPosition = localPos;
 
             var col = root.AddComponent<BoxCollider>();
-            col.size = new Vector3(0.22f, 0.10f, 0.02f);
+            col.size = new Vector3(0.22f, 0.12f, 0.02f);
 
             var bg = GameObject.CreatePrimitive(PrimitiveType.Cube);
             bg.transform.SetParent(root.transform, false);
-            bg.transform.localScale = new Vector3(0.22f, 0.10f, 0.012f);
+            bg.transform.localScale = new Vector3(0.22f, 0.12f, 0.012f);
             var bgCol = bg.GetComponent<Collider>();
             if (bgCol != null) Destroy(bgCol);
             var mat = bg.GetComponent<MeshRenderer>().material;
@@ -81,8 +81,11 @@ namespace EchoRealm.Interaction
             tmp.text = label;
             tmp.alignment = TextAlignmentOptions.Center;
             tmp.color = Color.white;
-            tmp.rectTransform.sizeDelta = new Vector2(0.2f, 0.09f);
-            tmp.enableAutoSizing = true; tmp.fontSizeMin = 0.01f; tmp.fontSizeMax = 0.05f;
+            // Fill the button width and let auto-size grow the (short) label far higher than before.
+            // The panel can't get WIDER without leaving the HoloLens FOV, so legibility comes from a
+            // bigger font within the existing button, not a bigger panel.
+            tmp.rectTransform.sizeDelta = new Vector2(0.215f, 0.11f);
+            tmp.enableAutoSizing = true; tmp.fontSizeMin = 0.03f; tmp.fontSizeMax = 0.11f;
 
             var si = root.AddComponent<StatefulInteractable>();
             var baseColor = mat.color;

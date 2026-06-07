@@ -64,9 +64,16 @@ namespace EchoRealm.Film
 
         private void Start()
         {
-            if (replayGate == null) replayGate = FindObjectOfType<ReplayModeGate>(true);
-            if (replayGate != null) { replayGate.ShowChooser(); return; } // user picks Live vs Saved
-            BeginLiveBoot(); // no gate present → behave exactly as before
+            // The film can begin without our own StartFilm() ever running: the spoken "START" command
+            // goes VoiceCommandProcessor → FilmSync → FilmDirector → ActManager and bypasses this script.
+            // Clearing the "Say START" prompt off the actual act-start signal covers every start path,
+            // on every headset (RPC_StartAct → ActManager.StartAct fires for all devices).
+            ActManager.OnActStarted += OnFilmActStarted;
+
+            // Always boot the live film automatically — the QR scan and Photon connection happen inside
+            // BeginLiveBoot(). The saved-scene viewer is opened on demand via OpenSavedSceneViewer(), NOT
+            // a startup chooser: a startup chooser blocked the QR/Photon boot until the user tapped it.
+            BeginLiveBoot();
         }
 
         /// <summary>Original live-film boot sequence. Public so ReplayModeGate can invoke it when
@@ -96,6 +103,16 @@ namespace EchoRealm.Film
                 Debug.LogWarning("[Boot] QRAnchorManager not found. Proceeding without QR anchor.");
                 OnQRAnchorEstablished();
             }
+        }
+
+        /// <summary>On-demand entry to the saved-scene (replay) viewer — wire this to a hand-menu button
+        /// or a voice command when you want to review a saved scene. Deliberately NOT called at startup,
+        /// so it never blocks the automatic live boot (QR + Photon).</summary>
+        public void OpenSavedSceneViewer()
+        {
+            if (replayGate == null) replayGate = FindObjectOfType<ReplayModeGate>(true);
+            if (replayGate != null) replayGate.ShowChooser();
+            else Debug.LogWarning("[Boot] No ReplayModeGate in the scene — cannot open the saved-scene viewer.");
         }
 
         private System.Collections.IEnumerator QRTimeoutFallback()
@@ -201,6 +218,11 @@ namespace EchoRealm.Film
             Debug.Log("[Boot] Ready — waiting for the spoken 'START' command before the film begins.");
             if (voiceProcessor != null)
                 voiceProcessor.StartListening();
+
+            // Late joiner whose film is already running: keep listening, but don't show a stale prompt.
+            var film = FindObjectOfType<FilmDirector>();
+            if (currentState == BootState.FilmStarted || (film != null && film.IsPlaying)) return;
+
             SetStatus("The grove awaits.\nSay \"START\" to begin.");
         }
 
@@ -231,6 +253,18 @@ namespace EchoRealm.Film
             }
         }
 
+        /// <summary>
+        /// The film has actually begun (Act 1+). Fires on EVERY headset via the networked
+        /// RPC_StartAct → ActManager.StartAct — including when a viewer triggers it by saying "START",
+        /// which bypasses our StartFilm(). Clear the "Say START" prompt so it never lingers. Idempotent.
+        /// </summary>
+        private void OnFilmActStarted(int act, string variant)
+        {
+            currentState = BootState.FilmStarted;
+            if (statusText != null) statusText.text = string.Empty;
+            BootStatusLabel.Instance?.Hide();
+        }
+
         private void SetStatus(string message)
         {
             if (statusText != null)
@@ -245,6 +279,7 @@ namespace EchoRealm.Film
 
         private void OnDestroy()
         {
+            ActManager.OnActStarted -= OnFilmActStarted;
             if (qrAnchorManager != null)
                 qrAnchorManager.OnAnchorEstablished -= OnQRAnchorEstablished;
             if (fusionNetworkManager != null)

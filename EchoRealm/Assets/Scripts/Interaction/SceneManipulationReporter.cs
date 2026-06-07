@@ -28,6 +28,11 @@ namespace EchoRealm.Interaction
                  "world grab so their own interactables (cooperative grab, etc.) respond instead.")]
         [SerializeField] private Transform[] protectedObjects;
 
+        [Tooltip("OFF (default): individual props can't be hand-grabbed — grabbing a prop moves the WHOLE " +
+                 "scene, and props are manipulated only via 'Claude' voice + eye-tracking. ON: restores " +
+                 "per-prop hand-grab alongside the whole-scene grab.")]
+        [SerializeField] private bool allowIndividualPropGrab = false;
+
         public static SceneManipulationReporter Instance { get; private set; }
 
         /// <summary>True while at least one hand is grabbing the world on this device.</summary>
@@ -61,10 +66,16 @@ namespace EchoRealm.Interaction
         {
             if (_om == null || protectedObjects == null || protectedObjects.Length == 0) return;
 
+            // Scene-level manipulation only (default): turn OFF each individual prop's hand-grab so the
+            // hands can only ever move the WHOLE scene. Props stay registered + gaze-resolvable for the
+            // "Claude, …" voice path. Reversible — set allowIndividualPropGrab = true to bring it back.
+            if (!allowIndividualPropGrab) DisableIndividualPropGrabs();
+
             var mgr = _om.interactionManager;
 
-            // 1) World grab keeps colliders that are NEITHER protected NOR part of a prop that has its
-            //    OWN ObjectManipulator (those grab individually). Everything else grabs the whole world.
+            // 1) World grab keeps colliders that are NEITHER protected NOR owned by a prop with an
+            //    ENABLED ObjectManipulator. With per-prop grab off (default), props fall through to the
+            //    whole-scene grab, so grabbing a prop moves the whole scene.
             var keep = new List<Collider>();
             foreach (var c in GetComponentsInChildren<Collider>(true))
                 if (!IsProtected(c.transform) && !HasOwnManipulator(c.transform)) keep.Add(c);
@@ -88,7 +99,24 @@ namespace EchoRealm.Interaction
                 }
             }
 
-            Debug.Log($"[SceneGrab] World grab uses {keep.Count} colliders; excluded {protectedObjects.Length} protected object(s).");
+            Debug.Log($"[SceneGrab] World grab uses {keep.Count} colliders; individual prop grab " +
+                      $"{(allowIndividualPropGrab ? "ENABLED" : "DISABLED")}; excluded {protectedObjects.Length} protected object(s).");
+        }
+
+        // Scene-level manipulation only: disable every prop's own ObjectManipulator so a hand-grab on
+        // a prop drives the WHOLE-scene grab instead. Skips the world-grab manipulator and protected
+        // objects. The component stays attached (just disabled), so ManipulableRegistry still discovers
+        // the prop and the "Claude" voice + gaze path is unaffected.
+        private void DisableIndividualPropGrabs()
+        {
+            int n = 0;
+            foreach (var om in GetComponentsInChildren<ObjectManipulator>(true))
+            {
+                if (om == _om || IsProtected(om.transform) || !om.enabled) continue;
+                om.enabled = false;
+                n++;
+            }
+            if (n > 0) Debug.Log($"[SceneGrab] Disabled {n} individual prop grab(s) — hands move the whole scene only.");
         }
 
         private bool IsProtected(Transform t)
@@ -98,13 +126,17 @@ namespace EchoRealm.Interaction
             return false;
         }
 
-        // True if this collider belongs to a descendant prop with its OWN ObjectManipulator, so it
-        // should grab individually rather than move the whole world. The walk stops at this transform
-        // (SceneRoot), so SceneRoot's own grab collider is still kept for the world grab.
+        // True if this collider belongs to a descendant prop with its OWN *enabled* ObjectManipulator,
+        // so it should grab individually rather than move the whole world. With individual prop grab
+        // disabled (the default), those manipulators are off and their colliders fall into the world
+        // grab. The walk stops at this transform (SceneRoot), so SceneRoot's own grab collider is kept.
         private bool HasOwnManipulator(Transform t)
         {
             for (Transform x = t; x != null && x != transform; x = x.parent)
-                if (x.GetComponent<ObjectManipulator>() != null) return true;
+            {
+                var om = x.GetComponent<ObjectManipulator>();
+                if (om != null && om.enabled) return true;
+            }
             return false;
         }
 
