@@ -33,6 +33,12 @@ namespace EchoRealm.Interaction
         // True on the device that TRIGGERED this pocket — it gets the floating Resume button.
         private bool _iInitiated;
 
+        // Re-arm guard: the auto-pocket gesture only fires when the scene FRESHLY enters the pocket
+        // zone. Unpocket restores the small/close/low pose (the very pose that triggered the pocket),
+        // so without this the gesture re-fires immediately and the world flickers away after each
+        // Resume. Set false on pocket; set true again only once the scene leaves the zone.
+        private bool _armed = true;
+
         [Header("Debug")]
         [SerializeField] private bool logEvents = true;
 
@@ -65,14 +71,17 @@ namespace EchoRealm.Interaction
             var cam = Camera.main;
             if (cam == null) return;
 
-            if (sceneRoot.localScale.x > pocketScale) return; // not shrunk enough
-
+            bool shrunk = sceneRoot.localScale.x <= pocketScale;
             float dist = Vector3.Distance(sceneRoot.position, cam.transform.position);
             Vector3 vp = cam.WorldToViewportPoint(sceneRoot.position);
             bool pulledIn = dist <= pocketDistance;
             bool atBottom = vp.z > 0f && vp.y <= bottomViewport;
+            bool inPocketZone = shrunk && pulledIn && atBottom;
 
-            if (pulledIn && atBottom) Pocket();
+            // Re-arm only after the scene LEAVES the zone, so unpocket (which restores the small/close/low
+            // pose) doesn't instantly re-pocket — that caused the world to flicker away after each Resume.
+            if (!inPocketZone) { _armed = true; return; }
+            if (_armed) Pocket();
         }
 
         // Public entry points (gesture/voice). They REQUEST a networked pocket so every headset
@@ -105,6 +114,7 @@ namespace EchoRealm.Interaction
             _hasSaved   = true;
 
             IsPocketed = true;
+            _armed = false; // don't let the restored (small/close/low) pose re-trigger the pocket on Resume
             sceneRoot.gameObject.SetActive(false); // hides all world visuals/characters/effects (they stop updating)
             // NOTE: deliberately NOT using Time.timeScale = 0 — that also freezes Photon Fusion,
             // which would block the networked "unpocket" from ever arriving. The film is paused via

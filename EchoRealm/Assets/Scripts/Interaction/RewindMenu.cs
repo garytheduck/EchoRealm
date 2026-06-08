@@ -26,8 +26,8 @@ namespace EchoRealm.Interaction
         {
             _go = new GameObject("RewindMenu(Runtime)");
             PlaceOnce();   // fixed in world space — no per-frame head-follow
-            MakeButton("<< 20s", new Vector3(-0.13f, 0, 0), () => Rewind(20f));
-            MakeButton("<< 1m", new Vector3(0.13f, 0, 0), () => Rewind(60f));
+            MakeButton("<< 20s", new Vector3(-0.28f, 0, 0), () => Rewind(20f));
+            MakeButton("<< 1m", new Vector3(0.28f, 0, 0), () => Rewind(60f));
         }
 
         // Position the panel once, in front of the user, facing them so the labels read correctly
@@ -64,11 +64,11 @@ namespace EchoRealm.Interaction
             root.transform.localPosition = localPos;
 
             var col = root.AddComponent<BoxCollider>();
-            col.size = new Vector3(0.22f, 0.12f, 0.02f);
+            col.size = new Vector3(0.46f, 0.20f, 0.02f);
 
             var bg = GameObject.CreatePrimitive(PrimitiveType.Cube);
             bg.transform.SetParent(root.transform, false);
-            bg.transform.localScale = new Vector3(0.22f, 0.12f, 0.012f);
+            bg.transform.localScale = new Vector3(0.46f, 0.20f, 0.012f);
             var bgCol = bg.GetComponent<Collider>();
             if (bgCol != null) Destroy(bgCol);
             var mat = bg.GetComponent<MeshRenderer>().material;
@@ -77,15 +77,17 @@ namespace EchoRealm.Interaction
             var textGo = new GameObject("Label");
             textGo.transform.SetParent(root.transform, false);
             textGo.transform.localPosition = new Vector3(0, 0, 0.012f);
+            // Flip 180° so the readable face points at the user. The panel faces +Z toward the head, but
+            // TextMeshPro reads from its -Z side, so without this the label shows mirrored.
+            textGo.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
             var tmp = textGo.AddComponent<TextMeshPro>();
             tmp.text = label;
             tmp.alignment = TextAlignmentOptions.Center;
             tmp.color = Color.white;
-            // Fill the button width and let auto-size grow the (short) label far higher than before.
-            // The panel can't get WIDER without leaving the HoloLens FOV, so legibility comes from a
-            // bigger font within the existing button, not a bigger panel.
-            tmp.rectTransform.sizeDelta = new Vector2(0.215f, 0.11f);
-            tmp.enableAutoSizing = true; tmp.fontSizeMin = 0.03f; tmp.fontSizeMax = 0.11f;
+            // Big, clearly-readable label. The panel is fixed in world space, so it can be wider than the
+            // instantaneous FOV — the user looks at each button directly.
+            tmp.rectTransform.sizeDelta = new Vector2(0.44f, 0.18f);
+            tmp.enableAutoSizing = true; tmp.fontSizeMin = 0.08f; tmp.fontSizeMax = 0.24f;
 
             var si = root.AddComponent<StatefulInteractable>();
             var baseColor = mat.color;

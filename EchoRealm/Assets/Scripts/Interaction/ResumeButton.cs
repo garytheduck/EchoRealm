@@ -62,9 +62,8 @@ namespace EchoRealm.Interaction
         private void LateUpdate()
         {
             if (!_visible || _go == null) return;
-            PlaceInFront(snap: false);
-
-            // Gentle emission pulse so the button draws the eye.
+            // Fixed in world space: placed once in Show(), it does NOT follow the head (a moving target
+            // is hard to tap). Only the emission pulse animates.
             if (_bgMat != null)
             {
                 float k = 1f + 0.35f * Mathf.Sin(Time.unscaledTime * 3f);
@@ -102,13 +101,13 @@ namespace EchoRealm.Interaction
             var root = new GameObject("ResumeButton(Runtime)");
 
             var col = root.AddComponent<BoxCollider>();
-            col.size = new Vector3(0.22f, 0.10f, 0.02f);
+            col.size = new Vector3(0.5f, 0.2f, 0.02f);
 
             // Background: a thin cube (visible from any angle, unlike a single-sided quad).
             var bg = GameObject.CreatePrimitive(PrimitiveType.Cube);
             bg.name = "BG";
             bg.transform.SetParent(root.transform, false);
-            bg.transform.localScale = new Vector3(0.22f, 0.10f, 0.012f);
+            bg.transform.localScale = new Vector3(0.5f, 0.2f, 0.012f);
             var bgCol = bg.GetComponent<Collider>();
             if (bgCol != null) Destroy(bgCol); // use the root's collider only
 
@@ -123,14 +122,17 @@ namespace EchoRealm.Interaction
             var textGo = new GameObject("Label");
             textGo.transform.SetParent(root.transform, false);
             textGo.transform.localPosition = new Vector3(0f, 0f, 0.012f); // just toward the camera
+            // Flip 180° so the readable face points at the user (the panel faces +Z toward the head, but
+            // TextMeshPro reads from its -Z side — without this the label shows mirrored).
+            textGo.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
             var tmp = textGo.AddComponent<TextMeshPro>();
             tmp.text = label;
             tmp.alignment = TextAlignmentOptions.Center;
             tmp.color = Color.white;
-            tmp.rectTransform.sizeDelta = new Vector2(0.2f, 0.09f);
+            tmp.rectTransform.sizeDelta = new Vector2(0.47f, 0.18f);
             tmp.enableAutoSizing = true;
-            tmp.fontSizeMin = 0.01f;
-            tmp.fontSizeMax = 0.06f;
+            tmp.fontSizeMin = 0.08f;
+            tmp.fontSizeMax = 0.24f;
 
             return root;
         }
