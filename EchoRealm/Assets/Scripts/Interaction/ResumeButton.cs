@@ -101,13 +101,13 @@ namespace EchoRealm.Interaction
             var root = new GameObject("ResumeButton(Runtime)");
 
             var col = root.AddComponent<BoxCollider>();
-            col.size = new Vector3(0.5f, 0.2f, 0.02f);
+            col.size = new Vector3(0.22f, 0.10f, 0.02f);
 
             // Background: a thin cube (visible from any angle, unlike a single-sided quad).
             var bg = GameObject.CreatePrimitive(PrimitiveType.Cube);
             bg.name = "BG";
             bg.transform.SetParent(root.transform, false);
-            bg.transform.localScale = new Vector3(0.5f, 0.2f, 0.012f);
+            bg.transform.localScale = new Vector3(0.22f, 0.10f, 0.012f);
             var bgCol = bg.GetComponent<Collider>();
             if (bgCol != null) Destroy(bgCol); // use the root's collider only
 
@@ -129,10 +129,10 @@ namespace EchoRealm.Interaction
             tmp.text = label;
             tmp.alignment = TextAlignmentOptions.Center;
             tmp.color = Color.white;
-            tmp.rectTransform.sizeDelta = new Vector2(0.47f, 0.18f);
+            tmp.rectTransform.sizeDelta = new Vector2(0.2f, 0.09f);
             tmp.enableAutoSizing = true;
-            tmp.fontSizeMin = 0.08f;
-            tmp.fontSizeMax = 0.24f;
+            tmp.fontSizeMin = 0.02f;
+            tmp.fontSizeMax = 0.06f;
 
             return root;
         }

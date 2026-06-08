@@ -26,8 +26,8 @@ namespace EchoRealm.Interaction
         {
             _go = new GameObject("RewindMenu(Runtime)");
             PlaceOnce();   // fixed in world space — no per-frame head-follow
-            MakeButton("<< 20s", new Vector3(-0.28f, 0, 0), () => Rewind(20f));
-            MakeButton("<< 1m", new Vector3(0.28f, 0, 0), () => Rewind(60f));
+            MakeButton("<< 20s", new Vector3(-0.13f, 0, 0), () => Rewind(20f));
+            MakeButton("<< 1m", new Vector3(0.13f, 0, 0), () => Rewind(60f));
         }
 
         // Position the panel once, in front of the user, facing them so the labels read correctly
@@ -64,11 +64,11 @@ namespace EchoRealm.Interaction
             root.transform.localPosition = localPos;
 
             var col = root.AddComponent<BoxCollider>();
-            col.size = new Vector3(0.46f, 0.20f, 0.02f);
+            col.size = new Vector3(0.22f, 0.10f, 0.02f);
 
             var bg = GameObject.CreatePrimitive(PrimitiveType.Cube);
             bg.transform.SetParent(root.transform, false);
-            bg.transform.localScale = new Vector3(0.46f, 0.20f, 0.012f);
+            bg.transform.localScale = new Vector3(0.22f, 0.10f, 0.012f);
             var bgCol = bg.GetComponent<Collider>();
             if (bgCol != null) Destroy(bgCol);
             var mat = bg.GetComponent<MeshRenderer>().material;
@@ -84,10 +84,9 @@ namespace EchoRealm.Interaction
             tmp.text = label;
             tmp.alignment = TextAlignmentOptions.Center;
             tmp.color = Color.white;
-            // Big, clearly-readable label. The panel is fixed in world space, so it can be wider than the
-            // instantaneous FOV — the user looks at each button directly.
-            tmp.rectTransform.sizeDelta = new Vector2(0.44f, 0.18f);
-            tmp.enableAutoSizing = true; tmp.fontSizeMin = 0.08f; tmp.fontSizeMax = 0.24f;
+            // Auto-size fills the (original-size) button as much as it can.
+            tmp.rectTransform.sizeDelta = new Vector2(0.2f, 0.09f);
+            tmp.enableAutoSizing = true; tmp.fontSizeMin = 0.02f; tmp.fontSizeMax = 0.08f;
 
             var si = root.AddComponent<StatefulInteractable>();
             var baseColor = mat.color;
