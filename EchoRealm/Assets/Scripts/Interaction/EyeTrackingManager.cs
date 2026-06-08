@@ -55,6 +55,9 @@ namespace EchoRealm.Interaction
         private Dictionary<string, float> gazeTimePerObject = new Dictionary<string, float>();
         private GameObject previousTarget;
 
+        private readonly RaycastHit[] _gazeHits = new RaycastHit[16]; // reused buffer; avoids per-frame GC
+        private Transform _wholeSceneShell;                           // big SceneRoot grab collider gaze must see past
+
         private void Awake()
         {
             if (Instance != null && Instance != this)
@@ -125,10 +128,10 @@ namespace EchoRealm.Interaction
             if (drawDebugRay)
                 Debug.DrawRay(gazeRay.origin, gazeRay.direction * maxRaycastDistance, Color.yellow);
 
-            if (Physics.Raycast(gazeRay, out RaycastHit hit, maxRaycastDistance, gazeLayerMask))
+            GameObject hitObject = ResolveGazeTarget(gazeRay, out Vector3 hitPoint);
+            if (hitObject != null)
             {
-                GazeHitPosition = hit.point;
-                GameObject hitObject = hit.collider.gameObject;
+                GazeHitPosition = hitPoint;
 
                 if (hitObject != CurrentTarget)
                 {
@@ -159,6 +162,41 @@ namespace EchoRealm.Interaction
 
                 GazeHitPosition = gazeOrigin.position + gazeOrigin.forward * maxRaycastDistance;
             }
+        }
+
+        // Resolve the gazed object, but SEE THROUGH the whole-scene grab shell — the large collider on
+        // SceneRoot that lets you grab the whole world. Without this, that shell is the first thing the
+        // ray hits, so it shadows every prop and "Claude, make this bigger" can never resolve the prop
+        // you're actually looking at. Returns the nearest hit that ISN'T the shell; only falls back to
+        // the shell when nothing else is along the ray. Allocation-free (RaycastNonAlloc).
+        private GameObject ResolveGazeTarget(Ray ray, out Vector3 point)
+        {
+            Transform shell = WholeSceneShell();
+            int n = Physics.RaycastNonAlloc(ray, _gazeHits, maxRaycastDistance, gazeLayerMask);
+
+            int best = -1, shellHit = -1;
+            for (int i = 0; i < n; i++)
+            {
+                bool isShell = shell != null && _gazeHits[i].collider.transform == shell;
+                if (isShell)
+                {
+                    if (shellHit < 0 || _gazeHits[i].distance < _gazeHits[shellHit].distance) shellHit = i;
+                }
+                else if (best < 0 || _gazeHits[i].distance < _gazeHits[best].distance) best = i;
+            }
+
+            int pick = best >= 0 ? best : shellHit;
+            if (pick < 0) { point = Vector3.zero; return null; }
+            point = _gazeHits[pick].point;
+            return _gazeHits[pick].collider.gameObject;
+        }
+
+        // The whole-scene grab object (SceneRoot) carries the big collider we want gaze to see past.
+        private Transform WholeSceneShell()
+        {
+            if (_wholeSceneShell == null && SceneManipulationReporter.Instance != null)
+                _wholeSceneShell = SceneManipulationReporter.Instance.transform;
+            return _wholeSceneShell;
         }
 
         private void UpdateDwell()

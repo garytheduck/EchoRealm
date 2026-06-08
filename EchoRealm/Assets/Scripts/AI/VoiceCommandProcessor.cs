@@ -331,7 +331,20 @@ namespace EchoRealm.AI
             string lead = meta.TrimStart();
             bool addressed = lead.StartsWith("claude") || lead.StartsWith("claud")
                           || lead.StartsWith("cloud")  || lead.StartsWith("clyde") || lead.StartsWith("klaus");
-            if (addressed)
+
+            // The HoloLens recognizer often drops/garbles the leading wake word ("club make this smaller"
+            // → final transcript "make this smaller"), so the wake-word check alone misses real object
+            // commands. ALSO treat a phrase as an object command when you're gazing at a manipulable prop
+            // AND use a demonstrative ("this"/"that") together with a size/rotate/move verb. Requiring all
+            // three keeps ordinary scene speech ("make it rain") from being misrouted to the object path.
+            bool hasDemonstrative = meta.Contains("this") || meta.Contains("that");
+            bool hasManipVerb = meta.Contains("bigger") || meta.Contains("larger") || meta.Contains("grow")
+                             || meta.Contains("smaller") || meta.Contains("tinier") || meta.Contains("shrink")
+                             || meta.Contains("rotate") || meta.Contains("spin") || meta.Contains("move")
+                             || meta.Contains("scale") || meta.Contains("reset");
+            bool looksLikeObjectCommand = !addressed && hasDemonstrative && hasManipVerb && GazingAtManipulable();
+
+            if (addressed || looksLikeObjectCommand)
             {
                 await HandleObjectCommand(text);
                 return;
@@ -380,6 +393,15 @@ namespace EchoRealm.AI
             {
                 Log("AI returned null response.", isWarning: true);
             }
+        }
+
+        // True if eye-gaze currently lands on a registered manipulable prop. Lets object commands work
+        // even when the recognizer drops the "Claude" wake word (see the speech routing above).
+        private bool GazingAtManipulable()
+        {
+            var reg = EchoRealm.Interaction.ManipulableRegistry.Instance;
+            var eyes = EchoRealm.Interaction.EyeTrackingManager.Instance;
+            return reg != null && eyes != null && reg.Resolve(eyes.CurrentTarget) != null;
         }
 
         /// <summary>
