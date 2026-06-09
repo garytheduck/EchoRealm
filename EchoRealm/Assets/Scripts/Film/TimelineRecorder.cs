@@ -189,6 +189,17 @@ namespace EchoRealm.Film
                 if (_aiSnapshots[k].t > t) _aiSnapshots.RemoveAt(k);
         }
 
+        /// <summary>Record an utterance that originated on ANOTHER device (e.g. the client's speech, which
+        /// the master interprets but whose raw OnSpeechRecognized only fired on the client). Lets the
+        /// master's saved transcript include both players' phrases — not just the client's resulting
+        /// commands. Respects the rewind guard, like the local handlers.</summary>
+        public void RecordRemoteUtterance(string speaker, string text)
+        {
+            if (RewindInProgress || string.IsNullOrEmpty(text)) return;
+            Log.AddUtterance(speaker, text, Now());
+            SnapshotAiMemory();
+        }
+
         /// <summary>Set the session id used in the saved filename (call once when the film starts).</summary>
         public void SetSessionId(string id) => Log.Timeline.meta.sessionId = id;
 

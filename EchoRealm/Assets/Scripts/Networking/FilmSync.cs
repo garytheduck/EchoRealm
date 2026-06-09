@@ -262,6 +262,9 @@ namespace EchoRealm.Networking
         [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
         private void RPC_SubmitSpeech(string text)
         {
+            // Log the client's phrase into the master's timeline so the saved transcript is complete —
+            // the client's own OnSpeechRecognized only logged into the client's (unsaved) timeline.
+            EchoRealm.Film.TimelineRecorder.Instance?.RecordRemoteUtterance("User (client)", text);
             ProcessSpeechAsAuthority(text); // runs on the master
         }
 
