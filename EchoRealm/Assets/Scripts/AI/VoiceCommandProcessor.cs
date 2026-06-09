@@ -46,7 +46,11 @@ namespace EchoRealm.AI
 
         /// <summary>Fired when speech was REJECTED / below the confidence threshold (the text may be a
         /// low-confidence guess, or empty). Lets the "what I heard" label show "didn't catch that".</summary>
+        // Raised only in the WINDOWS_UWP recognizer path below; the Editor compile strips that path,
+        // so CS0067 ("event never used") would fire here despite external subscribers — suppress it.
+#pragma warning disable 67
         public event Action<string, float> OnSpeechUnclear;
+#pragma warning restore 67
 
         /// <summary>Fired when AI finishes processing and returns commands.</summary>
         public event Action<AICommandResponse> OnAIResponseReceived;
