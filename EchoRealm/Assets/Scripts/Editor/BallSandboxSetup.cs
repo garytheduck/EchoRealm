@@ -123,7 +123,7 @@ namespace EchoRealm.SandboxEditor
         // ---- scene objects ----
         private static void EnsureSceneObjects(GameObject ballPrefab, GameObject chunkPrefab, PhysicMaterial meshMat)
         {
-            var root = GameObject.Find("BallSandbox") ?? new GameObject("BallSandbox");
+            var root = FindInScene("BallSandbox") ?? new GameObject("BallSandbox");
 
             var spawner = root.GetComponent<BallSpawner>() ?? root.AddComponent<BallSpawner>();
             SetPrivate(spawner, "ballPrefab", ballPrefab.GetComponent<NetworkObject>());
@@ -136,7 +136,7 @@ namespace EchoRealm.SandboxEditor
             SetPrivate(floor, "floorMaterial", meshMat);
 
             // (B) Spatial mesh holder. ARMeshManager is added in the MANUAL step (must sit under the XR Origin).
-            var meshGo = GameObject.Find("SpatialMesh") ?? new GameObject("SpatialMesh");
+            var meshGo = FindInScene("SpatialMesh") ?? new GameObject("SpatialMesh");
             var smm = meshGo.GetComponent<SpatialMeshManager>() ?? meshGo.AddComponent<SpatialMeshManager>();
             SetPrivate(smm, "meshMaterial", meshMat);
 
@@ -160,6 +160,16 @@ namespace EchoRealm.SandboxEditor
             var prop = so.FindProperty(field);
             if (prop != null) { prop.objectReferenceValue = value; so.ApplyModifiedProperties(); }
             else Debug.LogWarning($"[BallSandbox] Field '{field}' not found on {target.GetType().Name}.");
+        }
+
+        // GameObject.Find skips INACTIVE objects, so re-running Setup while the sandbox was disabled
+        // created duplicate BallSandbox/SpatialMesh objects. Search the whole active scene (incl. inactive).
+        private static GameObject FindInScene(string name)
+        {
+            foreach (var root in EditorSceneManager.GetActiveScene().GetRootGameObjects())
+                foreach (var t in root.GetComponentsInChildren<Transform>(true))
+                    if (t.name == name) return t.gameObject;
+            return null;
         }
     }
 }
