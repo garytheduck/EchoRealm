@@ -79,6 +79,10 @@ namespace EchoRealm.SandboxEditor
         // ---- mesh chunk prefab (ARMeshManager.meshPrefab) ----
         private static GameObject EnsureChunkPrefab(int meshLayer, PhysicMaterial mat)
         {
+            // Idempotent: don't clobber an existing prefab on re-run (delete it to force a rebuild).
+            var existing = AssetDatabase.LoadAssetAtPath<GameObject>(ChunkPrefabPath);
+            if (existing != null) return existing;
+
             var go = new GameObject("SpatialMeshChunk", typeof(MeshFilter), typeof(MeshCollider));
             go.layer = meshLayer;
             go.GetComponent<MeshCollider>().material = mat;
@@ -90,6 +94,11 @@ namespace EchoRealm.SandboxEditor
         // ---- ball prefab ----
         private static GameObject EnsureBallPrefab(int ballLayer, PhysicMaterial mat)
         {
+            // Idempotent: NEVER clobber an existing Ball.prefab — re-running Setup must not wipe the
+            // hand-wired MRTK ObjectManipulator. Delete the prefab asset to force a fresh rebuild.
+            var existing = AssetDatabase.LoadAssetAtPath<GameObject>(BallPrefabPath);
+            if (existing != null) return existing;
+
             var go = GameObject.CreatePrimitive(PrimitiveType.Sphere); // sphere mesh + SphereCollider
             go.name = "Ball";
             go.layer = ballLayer;
