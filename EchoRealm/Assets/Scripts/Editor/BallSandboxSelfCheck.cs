@@ -36,6 +36,29 @@ namespace EchoRealm.SandboxEditor
             Check(ref fail, Mathf.Abs(p.z - 0.5f) < 1e-3f, "math: forward is flattened to horizontal");
             Check(ref fail, Mathf.Abs(p.y + 0.2f) < 1e-3f, "math: lowered by 'down'");
 
+            // --- SandboxFloorMath: floor top is straight down from the anchor under gravity ---
+            var fAnchor = new Vector3(1f, 2.5f, -3f);
+            var fTop = SandboxFloorMath.FloorTopCenter(fAnchor, 1.0f);
+            Check(ref fail, Mathf.Abs(fTop.y - (fAnchor.y - 1.0f)) < 1e-4f, "floor: top Y = anchorY - drop");
+            Check(ref fail, Mathf.Abs(fTop.x - fAnchor.x) < 1e-4f && Mathf.Abs(fTop.z - fAnchor.z) < 1e-4f, "floor: centred under anchor X/Z");
+
+            // --- SlidingWindowCounter: counts within window, evicts stale, reaches threshold at the Nth event ---
+            var win = new SlidingWindowCounter();
+            win.Add(0f); win.Add(1f); win.Add(2f); win.Add(3f);
+            Check(ref fail, win.CountWithin(3f, 10f) == 4, "watchdog: 4 events within window counted");
+            Check(ref fail, win.CountWithin(100f, 10f) == 0, "watchdog: stale events evicted");
+            var win2 = new SlidingWindowCounter();
+            for (int i = 0; i < 4; i++) win2.Add(i);
+            Check(ref fail, win2.CountWithin(3f, 10f) < 5, "watchdog: 4 events do NOT reach threshold 5");
+            win2.Add(4f);
+            Check(ref fail, win2.CountWithin(4f, 10f) >= 5, "watchdog: 5th event reaches threshold 5");
+
+            // --- benign Scene-Understanding line must NOT be treated as trouble ---
+            const string benign = "[MROpenXR][Error] SceneComputer_Update_ComputeCompletedWithError";
+            Check(ref fail, SceneUnderstandingWatchdog.IsBenignSceneLog(benign), "watchdog: benign SceneComputer line classified benign");
+            Check(ref fail, !SceneUnderstandingWatchdog.IsTroubleSignal(benign, "", LogType.Error), "watchdog: benign line is NOT a trouble signal");
+            Check(ref fail, SceneUnderstandingWatchdog.IsTroubleSignal("NullReferenceException", "at SpatialMeshManager.ConfigureOne ARMesh", LogType.Exception), "watchdog: a mesh exception IS a trouble signal");
+
             if (fail == 0) Debug.Log("[BallSandbox] Self-Check PASSED (all assertions).");
             else Debug.LogError($"[BallSandbox] Self-Check FAILED: {fail} assertion(s).");
         }

@@ -38,7 +38,11 @@ namespace EchoRealm.SandboxEditor
 
             EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
             AssetDatabase.SaveAssets();
-            Debug.Log("[BallSandbox] Setup complete. Now do the two MANUAL steps in the plan (ObjectManipulator events + OpenXR mesh feature).");
+            Debug.Log("[BallSandbox] Setup complete. Floor (A) is ON by default; room mesh (B) ships OFF — activate the " +
+                      "'SpatialMesh' object to opt in. MANUAL steps: (1) wire ObjectManipulator grab/release to " +
+                      "NetworkedBall.OnGrabStart/OnGrabEnd; (2) add an ARMeshManager under the XR Origin and assign it to " +
+                      "BOTH SpatialMeshManager.meshManager AND SceneUnderstandingWatchdog.meshManager; (3) enable the OpenXR " +
+                      "scene-understanding feature.");
         }
 
         // ---- layers ----
@@ -118,10 +122,21 @@ namespace EchoRealm.SandboxEditor
             var hook = root.GetComponent<BallVoiceHook>() ?? root.AddComponent<BallVoiceHook>();
             SetPrivate(hook, "spawner", spawner);
 
-            // Spatial mesh holder. ARMeshManager is added in the MANUAL step (must sit under the XR Origin).
+            // (A) Deterministic floor — the guaranteed bounce surface. No Scene Understanding, cannot crash.
+            var floor = root.GetComponent<SandboxFloor>() ?? root.AddComponent<SandboxFloor>();
+            SetPrivate(floor, "floorMaterial", meshMat);
+
+            // (B) Spatial mesh holder. ARMeshManager is added in the MANUAL step (must sit under the XR Origin).
             var meshGo = GameObject.Find("SpatialMesh") ?? new GameObject("SpatialMesh");
             var smm = meshGo.GetComponent<SpatialMeshManager>() ?? meshGo.AddComponent<SpatialMeshManager>();
             SetPrivate(smm, "meshMaterial", meshMat);
+
+            // Watchdog: disables the room mesh + falls back to floor-only if Scene Understanding misbehaves.
+            var dog = meshGo.GetComponent<SceneUnderstandingWatchdog>() ?? meshGo.AddComponent<SceneUnderstandingWatchdog>();
+            SetPrivate(dog, "meshManagerComponent", smm);
+
+            // Opt-in default: the room mesh (B) ships OFF. Activate the 'SpatialMesh' object to enable it.
+            meshGo.SetActive(false);
         }
 
         // ---- helpers ----
