@@ -283,6 +283,7 @@ GameObject:
   - component: {fileID: 126231494}
   - component: {fileID: 126231493}
   - component: {fileID: 126231496}
+  - component: {fileID: 126231497}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -595,6 +596,26 @@ MonoBehaviour:
   dwellThresholdSeconds: 2
   logEvents: 1
   drawDebugRay: 1
+--- !u!114 &126231497
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 126231477}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bf15644f3f6bce34ebc6aa84e858705d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  distance: 1.4
+  verticalOffset: -0.45
+  worldScale: 0.005
+  fontSize: 36
+  holdSeconds: 2.5
+  fadeSeconds: 0.5
+  heardColor: {r: 0.7, g: 1, b: 0.7, a: 1}
+  unclearColor: {r: 1, g: 0.85, b: 0.4, a: 1}
 --- !u!1 &171679525 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 5966164640374813888, guid: ee612942e9d74fe4baea785dfe2eaa52, type: 3}

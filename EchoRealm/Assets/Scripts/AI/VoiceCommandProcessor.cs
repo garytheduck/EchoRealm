@@ -44,6 +44,10 @@ namespace EchoRealm.AI
         /// <summary>Fired when speech is recognized, before AI processing.</summary>
         public event Action<string> OnSpeechRecognized;
 
+        /// <summary>Fired when speech was REJECTED / below the confidence threshold (the text may be a
+        /// low-confidence guess, or empty). Lets the "what I heard" label show "didn't catch that".</summary>
+        public event Action<string, float> OnSpeechUnclear;
+
         /// <summary>Fired when AI finishes processing and returns commands.</summary>
         public event Action<AICommandResponse> OnAIResponseReceived;
 
@@ -205,6 +209,7 @@ namespace EchoRealm.AI
             if (args.Result.Confidence == SpeechRecognitionConfidence.Rejected)
             {
                 Log("Speech rejected (too low confidence).");
+                UnityEngine.WSA.Application.InvokeOnAppThread(() => OnSpeechUnclear?.Invoke(args.Result.Text ?? "", 0f), false);
                 return;
             }
 
@@ -214,6 +219,7 @@ namespace EchoRealm.AI
             if (confidence < confidenceThreshold)
             {
                 Log($"Speech below threshold: '{text}' (confidence: {confidence:F2})");
+                UnityEngine.WSA.Application.InvokeOnAppThread(() => OnSpeechUnclear?.Invoke(text, confidence), false);
                 return;
             }
 
