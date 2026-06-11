@@ -289,7 +289,10 @@ namespace EchoRealm.AI
                 }
             },
 
-            // Act 3 → Act 4: ending tone reflects how they shaped and solved the world.
+            // Act 3 → Act 4: the ending OUTCOME — not just its tone — reflects how the players
+            // shaped the world. ActManager.RunAct4 branches on the chosen key: triumphant = the
+            // traveler goes home; bittersweet = the world burns and the portal collapses;
+            // mysterious = the portal stays sealed and the traveler remains as guardian.
             new ActVariantSet
             {
                 fromAct = 3,
@@ -298,28 +301,34 @@ namespace EchoRealm.AI
                     new SceneVariant
                     {
                         key         = "triumphant",
-                        displayName = "Final Triumfal",
+                        displayName = "The Passage",
                         aiDescription =
-                            "A nurturing, harmonious session that solved the trial well. Warm, proud, celebratory.",
-                        fallbackOracleLine = "You shaped this world with care, and it answered in kind.",
+                            "Choose for a NURTURING, harmonious session that solved the trial well. " +
+                            "OUTCOME: the grove rewards the players — daylight returns, the portal opens " +
+                            "fully and the traveler goes home. Warm, proud, celebratory.",
+                        fallbackOracleLine = "You shaped this world with care, and it opens the way home.",
                         fallbackMood       = "joyful"
                     },
                     new SceneVariant
                     {
                         key         = "bittersweet",
-                        displayName = "Final Melancolie",
+                        displayName = "The Reckoning",
                         aiDescription =
-                            "A chaotic or hard-won session. Reflective and gentle, acknowledging the storm they raised.",
-                        fallbackOracleLine = "You raised storms, yet found your way through them. That, too, is wisdom.",
-                        fallbackMood       = "sad"
+                            "Choose for a CHAOTIC, destructive session (fire, storms, earthquakes, night). " +
+                            "OUTCOME: the grove retaliates — the world catches fire, the path slams shut " +
+                            "and the portal collapses; the traveler CANNOT go home and remains in the grove.",
+                        fallbackOracleLine = "You raised storms, and storms have answers. The door will not hold.",
+                        fallbackMood       = "scared"
                     },
                     new SceneVariant
                     {
                         key         = "mysterious",
-                        displayName = "Final Misterios",
+                        displayName = "The Sealed Door",
                         aiDescription =
-                            "A watchful, exploratory session. Ambiguous and wondrous; raises more questions than answers.",
-                        fallbackOracleLine = "What you witnessed here — was it memory, or prophecy? Only you can say.",
+                            "Choose for a WATCHFUL, passive or balanced session. OUTCOME: mist falls, the " +
+                            "portal never wakes and stays sealed; the traveler remains as the grove's " +
+                            "guardian. Ambiguous and wondrous.",
+                        fallbackOracleLine = "Between bloom and fire, the door keeps its own counsel. Watch.",
                         fallbackMood       = "mysterious"
                     }
                 }

@@ -503,6 +503,11 @@ namespace EchoRealm.Networking
             WorldStateCsv = TrimWorldCsv();
 
             CurrentAct = ActManager.Instance != null ? ActManager.Instance.CurrentAct : CurrentAct;
+            // Keep the networked variant in step with the rewound act (the local replay pass above
+            // set it via ApplyActState). Without this, peers would reconstruct the rewound act with
+            // the LAST DriveAct's variant — e.g. an Act-4 ending key while rewinding into Act 3 —
+            // and stage the wrong obstacle/ending.
+            if (ActManager.Instance != null) ChosenVariant = ActManager.Instance.CurrentVariant ?? "default";
             EchoRealm.Film.FilmDirector.Instance?.RewindToAct(CurrentAct); // re-arm the act flow to T (spec R9)
 
             RPC_RewindApply(t, CurrentAct, ChosenVariant.ToString(), WorldStateCsv.ToString());

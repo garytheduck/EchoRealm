@@ -169,8 +169,10 @@ namespace EchoRealm.AI
 
         /// <summary>
         /// Request the AI to generate the final Oracle monologue (Act 4).
+        /// The ending coroutines pass a summary snapshotted BEFORE they stage their own scripted
+        /// world commands, so the monologue reflects what the PLAYERS did — not the grove's finale.
         /// </summary>
-        public async Task<string> GenerateFinalMonologue()
+        public async Task<string> GenerateFinalMonologue(string precomputedSummary = null)
         {
             if (aiManager == null || !aiManager.IsReachable)
             {
@@ -178,7 +180,7 @@ namespace EchoRealm.AI
                 return GetFallbackMonologue();
             }
 
-            string sessionSummary = BuildSessionSummary();
+            string sessionSummary = precomputedSummary ?? BuildSessionSummary();
             string gazeSummary = Interaction.EyeTrackingManager.Instance != null
                 ? Interaction.EyeTrackingManager.Instance.GetGazeSummary()
                 : "nothing specific";

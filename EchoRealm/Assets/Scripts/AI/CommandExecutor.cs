@@ -269,6 +269,11 @@ namespace EchoRealm.AI
             ExecuteCommand("stop_butterflies");
             ExecuteCommand("stop_fireflies");
             ExecuteCommand("open_path");
+            // The earthquake command turns on the looping Dust system but no command ever turns it
+            // off — without this, an earthquake (player-spoken or the Reckoning ending) leaves dust
+            // billowing through every rewind/replay reconstruction on every device.
+            if (weatherController != null)
+                weatherController.SetEffect(weatherController.Dust, false);
             SetGameObject(forestGroup, false);
             SetGameObject(flowersGroup, false);
             hasForest = false;
