@@ -13,25 +13,41 @@ namespace EchoRealm.Interaction
     /// </summary>
     public static class ObjectOpMath
     {
-        public static float ScaleFactor(string direction, string magnitude)
+        // amount is the AI's numeric intensity (1 = "a bit", 2 = "twice", 10 = "ten times"). 0 = the
+        // AI didn't supply one → fall back to the coarse magnitude bucket (back-compat with old ops).
+
+        public static float ScaleFactor(string direction, string magnitude, float amount = 0f)
         {
-            float up = magnitude == "small" ? 1.15f : magnitude == "large" ? 1.8f : 1.4f;
+            // An explicit multiplier ("twice as big", "ten times bigger") drives the factor directly,
+            // clamped to the 3x ceiling ManipulableObject enforces. Soft qualifiers ("a bit"/"a lot",
+            // amount ~1) keep the original feel via the magnitude buckets, so scale doesn't regress.
+            float up = amount >= 2f
+                ? Mathf.Clamp(amount, 2f, 3f)
+                : (magnitude == "small" ? 1.15f : magnitude == "large" ? 1.8f : 1.4f);
             return direction == "smaller" ? 1f / up : up;
         }
 
-        public static float MoveMeters(string magnitude)
-            => magnitude == "small" ? 0.1f : magnitude == "large" ? 0.5f : 0.25f;
-
-        public static float YawDegrees(string direction, string magnitude)
+        public static float MoveMeters(string magnitude, float amount = 0f)
         {
-            float d = magnitude == "small" ? 15f : magnitude == "large" ? 90f : 45f;
+            // "a bit" (amount 1) ≈ 0.18 m, "ten times" (amount 10) ≈ 1.8 m, capped ≈ 2.5 m so a big
+            // request travels ~10x a small one — the whole point of honoring intensity for moves.
+            if (amount > 0f) return Mathf.Clamp(amount, 1f, 14f) * 0.18f;
+            return magnitude == "small" ? 0.1f : magnitude == "large" ? 0.5f : 0.25f;
+        }
+
+        public static float YawDegrees(string direction, string magnitude, float amount = 0f)
+        {
+            // "a bit" ≈ 20°, "ten times" ≈ 180° (capped to a half-turn so it never over-spins).
+            float d = amount > 0f
+                ? Mathf.Clamp(amount, 1f, 9f) * 20f
+                : (magnitude == "small" ? 15f : magnitude == "large" ? 90f : 45f);
             return direction == "left" ? -d : d;
         }
 
         /// <summary>
         /// Egocentric direction (relative to the speaker's head) → the prop's parent-local delta.
         /// </summary>
-        public static Vector3 MoveDelta(Transform cam, Transform prop, string direction, string magnitude)
+        public static Vector3 MoveDelta(Transform cam, Transform prop, string direction, string magnitude, float amount = 0f)
         {
             if (cam == null || prop == null) return Vector3.zero;
             Vector3 world =
@@ -45,7 +61,7 @@ namespace EchoRealm.Interaction
 
             Vector3 local = prop.parent != null ? prop.parent.InverseTransformDirection(world) : world;
             if (local.sqrMagnitude < 1e-8f) return Vector3.zero;
-            return local.normalized * MoveMeters(magnitude);
+            return local.normalized * MoveMeters(magnitude, amount);
         }
     }
 }

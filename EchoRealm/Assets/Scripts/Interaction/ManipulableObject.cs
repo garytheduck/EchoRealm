@@ -16,6 +16,11 @@ namespace EchoRealm.Interaction
         /// <summary>Friendly type for the AI prompt: cloud/bush/rock/tree/flower/mushroom/object.</summary>
         public string Kind;
 
+        [Tooltip("How far (metres) a prop may travel from its original spot via voice 'move' commands. " +
+                 "Raised from 1 m so an intense request ('move it ten times to the right') is actually " +
+                 "visible; lower it if props wander out of the curated scene.")]
+        [SerializeField] private float maxMoveFromOrigin = 2.5f;
+
         private Vector3 _origScale, _origPos;
         private Quaternion _origRot;
         private bool _captured;
@@ -47,8 +52,8 @@ namespace EchoRealm.Interaction
         public void ApplyMove(Vector3 parentLocalDelta)
         {
             Vector3 p = transform.localPosition + parentLocalDelta;
-            // Keep within 1 m of where it started so nothing flies away.
-            transform.localPosition = _origPos + Vector3.ClampMagnitude(p - _origPos, 1f);
+            // Keep within maxMoveFromOrigin of where it started so nothing flies away.
+            transform.localPosition = _origPos + Vector3.ClampMagnitude(p - _origPos, maxMoveFromOrigin);
         }
 
         public void ApplyYaw(float degrees)

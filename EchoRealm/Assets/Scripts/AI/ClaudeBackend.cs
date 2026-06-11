@@ -190,10 +190,13 @@ namespace EchoRealm.AI
                 "Translate a short spoken request into ONE manipulation of a single 3D object the user is looking at. " +
                 $"Object: {objectContext}. User said: \"{phrase}\". " +
                 "Respond ONLY with JSON (no markdown): " +
-                "{\"action\":\"scale|move|rotate|reset\",\"direction\":\"bigger|smaller|left|right|up|down|closer|farther|none\",\"magnitude\":\"small|medium|large\"}. " +
+                "{\"action\":\"scale|move|rotate|reset\",\"direction\":\"bigger|smaller|left|right|up|down|closer|farther|none\",\"magnitude\":\"small|medium|large\",\"amount\":<number>}. " +
                 "Rules: bigger/smaller -> scale. move/push/pull/bring with a direction -> move (closer=toward me, farther=away). " +
                 "turn/rotate/spin -> rotate (direction left or right). put it back/reset/undo/original -> reset. " +
-                "Magnitude: 'a bit'/'a little'/'slightly' -> small; 'a lot'/'much'/'way'/'huge' -> large; otherwise medium.";
+                "magnitude: 'a bit'/'a little'/'slightly' -> small; 'a lot'/'much'/'way'/'huge' -> large; otherwise medium. " +
+                "amount: ALWAYS set a single positive number for HOW STRONG the request is — 'a bit'/'a little'/'slightly'=1, " +
+                "'twice'/'two times'/'double'=2, 'three times'=3, 'five times'=5, 'ten times'=10, 'a lot more'/'way more'/'much'=5, " +
+                "a bare 'bigger'/'move it right' with no qualifier=2. Read explicit numbers literally (e.g. 'ten times to the right' -> 10).";
 
             string raw = await SendPromptAsync(prompt);
             if (string.IsNullOrEmpty(raw)) return null;

@@ -452,15 +452,15 @@ namespace EchoRealm.AI
             {
                 case "scale":
                     opType = (int)EchoRealm.Interaction.ObjOpType.Scale;
-                    factor = EchoRealm.Interaction.ObjectOpMath.ScaleFactor(op.direction, op.magnitude);
+                    factor = EchoRealm.Interaction.ObjectOpMath.ScaleFactor(op.direction, op.magnitude, op.amount);
                     break;
                 case "move":
                     opType = (int)EchoRealm.Interaction.ObjOpType.Move;
-                    delta = EchoRealm.Interaction.ObjectOpMath.MoveDelta(cam, mo.transform, op.direction, op.magnitude);
+                    delta = EchoRealm.Interaction.ObjectOpMath.MoveDelta(cam, mo.transform, op.direction, op.magnitude, op.amount);
                     break;
                 case "rotate":
                     opType = (int)EchoRealm.Interaction.ObjOpType.Rotate;
-                    degrees = EchoRealm.Interaction.ObjectOpMath.YawDegrees(op.direction, op.magnitude);
+                    degrees = EchoRealm.Interaction.ObjectOpMath.YawDegrees(op.direction, op.magnitude, op.amount);
                     break;
                 case "reset":
                     opType = (int)EchoRealm.Interaction.ObjOpType.Reset;
@@ -470,7 +470,7 @@ namespace EchoRealm.AI
                     return;
             }
 
-            Log($"Claude (object): {op.action}/{op.direction}/{op.magnitude} on '{mo.Id}'.");
+            Log($"Claude (object): {op.action}/{op.direction}/{op.magnitude} x{op.amount:F1} on '{mo.Id}'.");
             var sync = EchoRealm.Networking.FilmSync.Instance;
             if (sync != null) sync.SubmitObjectOp(mo.Id, opType, factor, delta, degrees);
         }
