@@ -47,11 +47,15 @@ namespace EchoRealm.Film
         [SerializeField] private Vector3 echoOneOffset = new Vector3(1.2f, 0f, 0.6f);
         [Tooltip("Second echo waypoint — scene-local metres relative to the Heart Stone.")]
         [SerializeField] private Vector3 echoTwoOffset = new Vector3(-1.1f, 0f, -0.5f);
+        [Tooltip("Max horizontal distance (metres, authored scale) any ambient waypoint may sit from " +
+                 "the Heart Stone. Keeps both characters wandering INSIDE the grove instead of drifting " +
+                 "off to one side. Code default — no scene edit needed.")]
+        [SerializeField] private float ambientWanderRadius = 0.9f;
 
         [Header("Act 3 — Ambient fallback")]
         [Tooltip("If nobody cooperates for this long (seconds), the grove resolves the trial by " +
                  "itself — the default film always reaches its ending without the audience.")]
-        [SerializeField] private float act3AmbientTimeout = 40f;
+        [SerializeField] private float act3AmbientTimeout = 30f;
 
         [Header("Act 3 — Cooperative Challenge")]
         [Tooltip("Default obstacle (used for 'cooperative' variant or when AI is unavailable).")]
@@ -386,8 +390,16 @@ namespace EchoRealm.Film
 
         // Scene-local offset (metres at authored scale) → world offset, honoring the scene's
         // current rotation and scale so waypoints stay inside the grove wherever it is placed.
-        private static Vector3 StoryDirection(Vector3 sceneLocalOffset)
+        // The horizontal offset is clamped to ambientWanderRadius FIRST, so neither character can
+        // wander outside the grove (the targets are all heart.position + StoryDirection(offset)).
+        private Vector3 StoryDirection(Vector3 sceneLocalOffset)
         {
+            // Contain wandering: cap the horizontal distance from the Heart Stone, keep the direction.
+            Vector3 flat = new Vector3(sceneLocalOffset.x, 0f, sceneLocalOffset.z);
+            if (flat.magnitude > ambientWanderRadius)
+                flat = flat.normalized * ambientWanderRadius;
+            sceneLocalOffset = new Vector3(flat.x, sceneLocalOffset.y, flat.z);
+
             var anchor = Networking.QRAnchorManager.Instance;
             var sr = anchor != null ? anchor.SceneRoot : null;
             if (sr == null) return sceneLocalOffset;

@@ -78,6 +78,44 @@ namespace EchoRealm.Film
             SeekToIndex(idx);
         }
 
+        // ---- Auto playback (so "View saved scene" replays from the BEGINNING, not the diorama) ----
+        private Coroutine _playback;
+
+        /// <summary>True while the saved scene is auto-advancing from the start.</summary>
+        public bool IsPlaying => _playback != null;
+
+        /// <summary>Replay the saved scene from the very beginning, advancing through the recorded
+        /// events at (clamped) original pace. This is what "View saved scene" runs on open, so the
+        /// viewer shows the run unfold instead of opening on the final diorama.</summary>
+        public void PlayFromStart()
+        {
+            StopPlayback();
+            if (Timeline == null || Timeline.events.Count == 0) { SeekToIndex(0); return; }
+            _playback = StartCoroutine(PlayRoutine());
+        }
+
+        /// <summary>Stop the auto playback (called when the user scrubs manually).</summary>
+        public void StopPlayback()
+        {
+            if (_playback != null) { StopCoroutine(_playback); _playback = null; }
+        }
+
+        private System.Collections.IEnumerator PlayRoutine()
+        {
+            SeekToIndex(0);                                   // empty/initial grove
+            yield return new WaitForSecondsRealtime(0.6f);
+            for (int i = 1; i <= Timeline.events.Count; i++)
+            {
+                SeekToIndex(i);                               // apply events[i-1]
+                if (i < Timeline.events.Count)
+                {
+                    float gap = Timeline.events[i].t - Timeline.events[i - 1].t;
+                    yield return new WaitForSecondsRealtime(Mathf.Clamp(gap, 0.4f, 2.5f));
+                }
+            }
+            _playback = null;
+        }
+
         /// <summary>Utterances at or before the current step (for the transcript panel).</summary>
         public IEnumerable<TimelineEvent> UtterancesUpToNow()
         {

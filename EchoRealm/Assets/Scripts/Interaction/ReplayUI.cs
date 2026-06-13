@@ -56,6 +56,7 @@ namespace EchoRealm.Interaction
             BuildTransport();
             BuildBanner();
             Refresh();
+            controller.PlayFromStart();   // replay from the BEGINNING, not the final diorama
         }
 
         // ---- Transport ----
@@ -63,10 +64,13 @@ namespace EchoRealm.Interaction
         {
             _transport = new GameObject("ReplayTransport(Runtime)");
 
-            MakeButton(_transport.transform, "◄ Prev",  new Vector3(-0.30f, 0, 0), () => controller.StepBack(),           Teal());
-            MakeButton(_transport.transform, "Next ►", new Vector3(-0.10f, 0, 0), () => controller.StepForward(),         Teal());
-            MakeButton(_transport.transform, "⟲ 20s",  new Vector3( 0.10f, 0, 0), () => controller.RewindSeconds(20f),   Purple());
-            MakeButton(_transport.transform, "⟲ 1m",   new Vector3( 0.30f, 0, 0), () => controller.RewindSeconds(60f),   Purple());
+            // Manual scrub stops the auto playback so the user's button wins.
+            MakeButton(_transport.transform, "Prev",  new Vector3(-0.30f, 0, 0), () => { controller.StopPlayback(); controller.StepBack(); },        Teal());
+            MakeButton(_transport.transform, "Next",  new Vector3(-0.10f, 0, 0), () => { controller.StopPlayback(); controller.StepForward(); },      Teal());
+            MakeButton(_transport.transform, "Back 20s", new Vector3( 0.10f, 0, 0), () => { controller.StopPlayback(); controller.RewindSeconds(20f); }, Purple());
+            MakeButton(_transport.transform, "Back 1m",  new Vector3( 0.30f, 0, 0), () => { controller.StopPlayback(); controller.RewindSeconds(60f); }, Purple());
+            // Second row: replay the whole scene from the beginning again.
+            MakeButton(_transport.transform, "Replay", new Vector3(0f, -0.13f, 0), () => controller.PlayFromStart(), new Color(0.10f, 0.45f, 0.20f), width: 0.30f);
 
             var s = new GameObject("Status");
             s.transform.SetParent(_transport.transform, false);
@@ -74,10 +78,12 @@ namespace EchoRealm.Interaction
             _status = s.AddComponent<TextMeshPro>();
             _status.alignment = TextAlignmentOptions.Center;
             _status.color = Color.white;
-            _status.rectTransform.sizeDelta = new Vector2(0.7f, 0.06f);
+            _status.rectTransform.sizeDelta = new Vector2(0.9f, 0.08f);
+            _status.enableWordWrapping = false;
             _status.enableAutoSizing = true;
-            _status.fontSizeMin = 0.01f;
-            _status.fontSizeMax = 0.04f;
+            _status.fontSizeMin = 0.03f;
+            _status.fontSizeMax = 0.075f;
+            s.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);   // un-mirror (TMP reads from -Z)
 
             var tr = new GameObject("Transcript");
             tr.transform.SetParent(_transport.transform, false);
@@ -85,8 +91,11 @@ namespace EchoRealm.Interaction
             _transcript = tr.AddComponent<TextMeshPro>();
             _transcript.alignment = TextAlignmentOptions.Top;
             _transcript.color = new Color(0.85f, 0.85f, 1f);
-            _transcript.rectTransform.sizeDelta = new Vector2(0.8f, 0.30f);
-            _transcript.fontSize = 0.028f;
+            _transcript.rectTransform.sizeDelta = new Vector2(0.9f, 0.30f);
+            _transcript.enableAutoSizing = true;
+            _transcript.fontSizeMin = 0.03f;
+            _transcript.fontSizeMax = 0.05f;
+            tr.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);   // un-mirror
 
             // Place transport once in world space — fixed, not head-following.
             PlaceSnap(_transport.transform, 0.75f);
@@ -99,11 +108,12 @@ namespace EchoRealm.Interaction
             tmp.text = "VIEWING SAVED SCENE — read only";
             tmp.alignment = TextAlignmentOptions.Center;
             tmp.color = new Color(1f, 0.85f, 0.3f);
-            tmp.rectTransform.sizeDelta = new Vector2(0.8f, 0.06f);
+            tmp.rectTransform.sizeDelta = new Vector2(0.9f, 0.08f);
+            tmp.enableWordWrapping = false;
             tmp.enableAutoSizing = true;
-            tmp.fontSizeMin = 0.01f;
-            tmp.fontSizeMax = 0.045f;
-            // Banner is positioned on first LateUpdate below.
+            tmp.fontSizeMin = 0.03f;
+            tmp.fontSizeMax = 0.075f;
+            // Banner is positioned (and un-mirrored) on every LateUpdate below.
         }
 
         private void Refresh()
@@ -135,6 +145,7 @@ namespace EchoRealm.Interaction
                     // UI correction: (camera − panel) so text faces the user.
                     _banner.transform.rotation = Quaternion.LookRotation(
                         cam.transform.position - _banner.transform.position, Vector3.up);
+                    _banner.transform.Rotate(0f, 180f, 0f, Space.Self);   // un-mirror after LookRotation
                 }
             }
         }
@@ -166,10 +177,13 @@ namespace EchoRealm.Interaction
             tmp.text = text;
             tmp.alignment = TextAlignmentOptions.Center;
             tmp.color = Color.white;
-            tmp.rectTransform.sizeDelta = new Vector2(0.5f, 0.06f);
+            tmp.rectTransform.sizeDelta = new Vector2(0.9f, 0.08f);
+            tmp.enableWordWrapping = false;
             tmp.enableAutoSizing = true;
-            tmp.fontSizeMin = 0.01f;
-            tmp.fontSizeMax = maxFont;
+            tmp.fontSizeMin = 0.03f;
+            tmp.fontSizeMax = Mathf.Max(maxFont, 0.085f);
+            // Un-mirror (same as SceneSavePrompt): flip 180° so the readable face points at the user.
+            go.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
         }
 
         private static void MakeButton(Transform parent, string label, Vector3 localPos,
@@ -196,10 +210,14 @@ namespace EchoRealm.Interaction
             tmp.text = label;
             tmp.alignment = TextAlignmentOptions.Center;
             tmp.color = Color.white;
-            tmp.rectTransform.sizeDelta = new Vector2(width * 0.9f, 0.08f);
+            tmp.rectTransform.sizeDelta = new Vector2(width * 0.95f, 0.08f);
+            tmp.enableWordWrapping = false;
             tmp.enableAutoSizing = true;
-            tmp.fontSizeMin = 0.01f;
-            tmp.fontSizeMax = 0.035f;
+            tmp.fontSizeMin = 0.03f;
+            tmp.fontSizeMax = 0.085f;
+            // Un-mirror: label sits at local +Z 0.012 in front of the cube; flipping 180° on Y keeps
+            // it in front while making the glyphs read correctly (TMP reads from its -Z side).
+            t.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
 
             root.AddComponent<StatefulInteractable>().OnClicked.AddListener(onClick);
         }

@@ -64,6 +64,15 @@ namespace EchoRealm.AI
         // silently undo a hard stop.
         private bool _muted;
 
+        // Watchdog: the recognizer's auto-restart is driven ONLY by the OS "session completed" callback
+        // (OnSpeechSessionCompleted). On HoloLens that callback sometimes never fires across a long
+        // silence (e.g. the ~30 s Act-3 cooperation wait), or the re-arm StartAsync throws — and then the
+        // mic is dead for the rest of the film (IsListening stuck true → StartListening is a no-op, no
+        // session, no Completed, no "didn't catch that" feedback). This 1 Hz poll re-arms whenever we
+        // INTEND to listen but no session is live. Additive / observer-only.
+        private float _rearmCheckTimer;
+        private bool _watchdogStopped;   // true after an explicit StopListening; cleared by StartListening
+
         [Header("Debug")]
         [SerializeField] private bool logEvents = true;
 
@@ -150,6 +159,7 @@ namespace EchoRealm.AI
         {
             if (IsListening) return;
 
+            _watchdogStopped = false;   // a (re)start means we INTEND to keep listening
 #if WINDOWS_UWP
             StartContinuousRecognition();
 #else
@@ -164,6 +174,11 @@ namespace EchoRealm.AI
         /// </summary>
         public void StopListening()
         {
+            // Set the stop intent BEFORE the guard: between sessions IsListening is transiently false
+            // (OnSpeechSessionCompleted clears it, then posts StartListening a frame later). If the
+            // finale stop landed in that window the early return would skip the flag and the watchdog
+            // would re-arm the mic. Setting it first makes an explicit stop always stick.
+            _watchdogStopped = true;   // explicit stop (finale / saved-scene viewer) — watchdog must NOT re-arm
             if (!IsListening) return;
 
 #if WINDOWS_UWP
@@ -172,6 +187,23 @@ namespace EchoRealm.AI
             IsListening = false;
             Log("Voice recognition STOPPED.");
         }
+
+#if WINDOWS_UWP
+        // Self-healing re-arm. The OS-driven restart chain (OnSpeechSessionCompleted) dies permanently
+        // the first time HoloLens fails to raise Completed across a long silence, or a re-arm StartAsync
+        // throws (single-active-session). Without an independent poll nothing notices. This re-arms a
+        // dead session at ~1 Hz; it stays out of the way after an explicit StopListening and is a no-op
+        // whenever a session is genuinely live. Muted ≠ stopped: muted keeps listening (and discarding),
+        // so the watchdog still keeps the mic alive while muted, exactly as intended.
+        private void Update()
+        {
+            if (speechRecognizer == null || !continuousListening || _watchdogStopped) return;
+            _rearmCheckTimer += Time.unscaledDeltaTime;   // unscaled → immune to any time-scale change
+            if (_rearmCheckTimer < 1.0f) return;
+            _rearmCheckTimer = 0f;
+            if (!IsListening) StartListening();           // no-op when a session is actually running
+        }
+#endif
 
         /// <summary>
         /// Process a text command directly (for Editor testing or text input fallback).
@@ -247,6 +279,11 @@ namespace EchoRealm.AI
             }
             catch (Exception ex)
             {
+                // StartAsync threw — most often the previous session hasn't fully reached Completed yet
+                // (UWP allows only ONE active session). Reset the flag so the watchdog (or the next
+                // Completed) can retry, instead of leaving IsListening==true forever — which would make
+                // every future StartListening() a silent no-op and kill the mic for the rest of the film.
+                IsListening = false;
                 Debug.LogError($"[Voice] Failed to start continuous recognition: {ex.Message}");
             }
         }
@@ -303,7 +340,9 @@ namespace EchoRealm.AI
 
             // Restart for ANY completion (including TimeoutExceeded during quiet stretches) — otherwise
             // the recognizer dies after the first silence timeout and never hears commands again.
-            if (continuousListening)
+            // But NOT after an explicit StopListening (finale / saved-scene viewer): _watchdogStopped
+            // guards it, so the Completed raised by our OWN StopAsync can't resurrect the mic.
+            if (continuousListening && !_watchdogStopped)
             {
                 UnityEngine.WSA.Application.InvokeOnAppThread(() => StartListening(), false);
             }
