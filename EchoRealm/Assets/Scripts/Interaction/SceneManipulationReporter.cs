@@ -35,8 +35,17 @@ namespace EchoRealm.Interaction
 
         public static SceneManipulationReporter Instance { get; private set; }
 
-        /// <summary>True while at least one hand is grabbing the world on this device.</summary>
-        public bool IsManipulating { get; private set; }
+        /// <summary>True while this device is driving the world transform — by hand grab, or by a
+        /// programmatic driver (PalmHold) via <see cref="ExternalDrive"/>. FilmSync reads this to
+        /// decide whether to STREAM the scene transform to peers instead of following it.</summary>
+        public bool IsManipulating => _grabbing || ExternalDrive;
+
+        /// <summary>Additive hook: set true by code that moves the whole scene programmatically
+        /// (e.g. PalmHold's follow-the-palm) so the transform is streamed to every headset exactly
+        /// like during a hand grab. Default false — behavior is identical to before when unused.</summary>
+        public bool ExternalDrive { get; set; }
+
+        private bool _grabbing;
 
         private ObjectManipulator _om;
 
@@ -140,8 +149,8 @@ namespace EchoRealm.Interaction
             return false;
         }
 
-        private void OnFirstSelect(SelectEnterEventArgs _) => IsManipulating = true;
-        private void OnLastDeselect(SelectExitEventArgs _) => IsManipulating = false;
+        private void OnFirstSelect(SelectEnterEventArgs _) => _grabbing = true;
+        private void OnLastDeselect(SelectExitEventArgs _) => _grabbing = false;
 
         private void OnDestroy()
         {

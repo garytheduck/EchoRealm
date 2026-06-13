@@ -73,6 +73,7 @@ namespace EchoRealm.Characters
         private Color targetColor;
         private float dialogueTimer;
         private float currentPulseSpeed;
+        private Coroutine _glide;   // ambient story float-move; tracked so a new glide replaces the old
 
         private static readonly int EmissionColorID = Shader.PropertyToID("_EmissionColor");
 
@@ -117,6 +118,38 @@ namespace EchoRealm.Characters
         // ------------------------------------------------------------------
         // Public API
         // ------------------------------------------------------------------
+
+        /// <summary>Ambient story move: float smoothly to a world point over a few seconds. By
+        /// default the Oracle keeps its current height (it hovers). A new glide replaces a running
+        /// one. Additive — nothing else moves the Oracle's transform.</summary>
+        public void GlideTo(Vector3 worldPos, float seconds = 2.5f, bool keepHeight = true)
+        {
+            // No-op while the scene is hidden (pocketed): the Oracle is under SceneRoot, so it is
+            // inactive — StartCoroutine on an inactive GameObject throws and would abort the caller's
+            // act coroutine. The story resumes its choreography after unpocket.
+            if (!gameObject.activeInHierarchy) return;
+            if (keepHeight) worldPos.y = transform.position.y;
+            if (_glide != null) StopCoroutine(_glide);
+            _glide = StartCoroutine(GlideRoutine(worldPos, Mathf.Max(0.1f, seconds)));
+        }
+
+        /// <summary>Stop a glide in place (act change / rewind reconstruction).</summary>
+        public void StopGlide()
+        {
+            if (_glide != null) { StopCoroutine(_glide); _glide = null; }
+        }
+
+        private IEnumerator GlideRoutine(Vector3 target, float seconds)
+        {
+            Vector3 start = transform.position;
+            for (float t = 0f; t < seconds; t += Time.deltaTime)
+            {
+                transform.position = Vector3.Lerp(start, target, Mathf.SmoothStep(0f, 1f, t / seconds));
+                yield return null;
+            }
+            transform.position = target;
+            _glide = null;
+        }
 
         /// <summary>Show Oracle dialogue (floating text + pulse effect).</summary>
         public void Speak(string text)

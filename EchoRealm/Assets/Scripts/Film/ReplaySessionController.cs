@@ -29,12 +29,16 @@ namespace EchoRealm.Film
         }
 
         // View-only playback: silence the live recorder and hide the live rewind panel so they
-        // don't clutter the saved-scene view (they're meaningless without a live session).
+        // don't clutter the saved-scene view (they're meaningless without a live session). Also
+        // MUTE the voice pipeline — if the viewer is entered in-session (Photon/recognizer still
+        // live, e.g. straight after the Save prompt), an unmuted spoken command would route through
+        // FilmSync and overwrite the reconstructed, read-only scene. Mute makes it truly read-only.
         private void HideLiveUI()
         {
             if (TimelineRecorder.Instance != null) TimelineRecorder.Instance.enabled = false;
             var rewind = FindObjectOfType<RewindMenu>(true);
             if (rewind != null) rewind.HideMenu();
+            AI.VoiceCommandProcessor.Instance?.SetMuted(true);
         }
 
         public List<string> ListSaves() => SceneArchive.List();

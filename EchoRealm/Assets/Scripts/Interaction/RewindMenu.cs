@@ -26,8 +26,13 @@ namespace EchoRealm.Interaction
         {
             _go = new GameObject("RewindMenu(Runtime)");
             PlaceOnce();   // fixed in world space — no per-frame head-follow
-            MakeButton("<< 20s", new Vector3(-0.13f, 0, 0), () => Rewind(20f));
-            MakeButton("<< 1m", new Vector3(0.13f, 0, 0), () => Rewind(60f));
+            MakeButton("Back 20s", new Vector3(-0.13f, 0, 0), () => Rewind(20f));
+            MakeButton("Back 1min", new Vector3(0.13f, 0, 0), () => Rewind(60f));
+
+            // Shared rewind feel (sound + time-ripple visual) — plays on every device when a rewind
+            // actually applies. Auto-attached so no scene wiring is needed; null-safe, additive.
+            if (GetComponent<EchoRealm.Effects.RewindFX>() == null)
+                gameObject.AddComponent<EchoRealm.Effects.RewindFX>();
         }
 
         // Position the panel once, in front of the user, facing them so the labels read correctly
@@ -84,9 +89,12 @@ namespace EchoRealm.Interaction
             tmp.text = label;
             tmp.alignment = TextAlignmentOptions.Center;
             tmp.color = Color.white;
-            // Auto-size fills the (original-size) button as much as it can.
-            tmp.rectTransform.sizeDelta = new Vector2(0.2f, 0.09f);
-            tmp.enableAutoSizing = true; tmp.fontSizeMin = 0.02f; tmp.fontSizeMax = 0.08f;
+            // Bigger, single-line text on the SAME button size: the text rect is wider than the plate
+            // (it may slightly overhang) and the auto-size ceiling is raised, so the label renders
+            // visibly larger without growing the button.
+            tmp.rectTransform.sizeDelta = new Vector2(0.26f, 0.10f);
+            tmp.enableWordWrapping = false;
+            tmp.enableAutoSizing = true; tmp.fontSizeMin = 0.03f; tmp.fontSizeMax = 0.085f;
 
             var si = root.AddComponent<StatefulInteractable>();
             var baseColor = mat.color;

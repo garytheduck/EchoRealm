@@ -28,6 +28,31 @@ namespace EchoRealm.Film
         };
         [SerializeField] private float introLinePause = 3f;
 
+        [Tooltip("Appended AFTER the intro lines: states the traveler's problem and invites the " +
+                 "audience to intervene at any moment. (New field — the scene predates it, so these " +
+                 "code defaults apply without any scene edit.)")]
+        [TextArea(2, 3)]
+        [SerializeField] private string[] introProblemLines = new[]
+        {
+            "This traveler fell through a broken door between worlds. The way home sleeps inside the Heart Stone.",
+            "Watch his journey — or shape it. Speak at any moment, and the grove will listen. Your voices can help him… or test him."
+        };
+
+        [Header("Act 2 — Ambient Story (the film lives on its own)")]
+        [Tooltip("Scripted Oracle/Astronaut story beats while waiting for (optional) audience commands.")]
+        [SerializeField] private bool ambientStory = true;
+        [Tooltip("Seconds after Act 2 starts before the first story beat.")]
+        [SerializeField] private float ambientStartDelay = 6f;
+        [Tooltip("First echo waypoint — scene-local metres relative to the Heart Stone.")]
+        [SerializeField] private Vector3 echoOneOffset = new Vector3(1.2f, 0f, 0.6f);
+        [Tooltip("Second echo waypoint — scene-local metres relative to the Heart Stone.")]
+        [SerializeField] private Vector3 echoTwoOffset = new Vector3(-1.1f, 0f, -0.5f);
+
+        [Header("Act 3 — Ambient fallback")]
+        [Tooltip("If nobody cooperates for this long (seconds), the grove resolves the trial by " +
+                 "itself — the default film always reaches its ending without the audience.")]
+        [SerializeField] private float act3AmbientTimeout = 40f;
+
         [Header("Act 3 — Cooperative Challenge")]
         [Tooltip("Default obstacle (used for 'cooperative' variant or when AI is unavailable).")]
         [SerializeField] private GameObject challengeObstacle;
@@ -100,6 +125,7 @@ namespace EchoRealm.Film
         {
             StopAllCoroutines();          // stop any prior act coroutine (e.g. a client's lingering Act 3 wait)
             DeactivateTrialObstacles();   // clear Act-3 trial visuals on every transition (incl. on clients)
+            StopAmbientMotion();          // characters stop moving toward stale story targets
 
             CurrentAct    = actNumber;
             CurrentDecision = decision;
@@ -131,6 +157,7 @@ namespace EchoRealm.Film
         {
             StopAllCoroutines();
             DeactivateTrialObstacles();
+            StopAmbientMotion();          // rewind/replay reconstruction: no stale walks/glides
             CurrentAct = actNumber;
             CurrentVariant = string.IsNullOrEmpty(variant) ? "default" : variant;
 
@@ -156,6 +183,15 @@ namespace EchoRealm.Film
         private static bool IsPortalGoneEnding(string variant)
             => variant == "bittersweet" || variant == "mysterious";
 
+        /// <summary>Stop ambient story motion (astronaut walk / Oracle glide) — their coroutines or
+        /// targets live on the character controllers, so ActManager's StopAllCoroutines alone
+        /// wouldn't halt them on act changes and rewinds.</summary>
+        private static void StopAmbientMotion()
+        {
+            AstronautController.Instance?.StopWalking();
+            OracleController.Instance?.StopGlide();
+        }
+
         // ------------------------------------------------------------------
         // Act 1 — Awakening
         // ------------------------------------------------------------------
@@ -177,8 +213,13 @@ namespace EchoRealm.Film
                 // Oracle delivers intro lines
                 foreach (string line in oracleIntroLines)
                 {
-                    oracle.Speak(line);
-                    yield return new WaitForSeconds(introLinePause);
+                    yield return SpeakAndWait(oracle, line);
+                }
+
+                // The traveler's problem + the open invitation to intervene (audience onboarding).
+                foreach (string line in introProblemLines)
+                {
+                    yield return SpeakAndWait(oracle, line);
                 }
 
                 yield return new WaitForSeconds(1f);
@@ -190,6 +231,17 @@ namespace EchoRealm.Film
             {
                 astronaut.PlayAnimation("LookAround");
                 yield return new WaitForSeconds(3f);
+            }
+
+            // …then gathers himself and approaches his guide.
+            if (astronaut != null && oracle != null)
+            {
+                Vector3 toward = oracle.transform.position
+                               + (astronaut.transform.position - oracle.transform.position).normalized * 0.7f;
+                astronaut.WalkTo(AtHeight(toward, astronaut.transform.position.y), 0.3f);
+                yield return new WaitForSeconds(4f);
+                astronaut.PlayAnimation("Wave");
+                yield return new WaitForSeconds(2f);
             }
 
             Log("Act 1 complete.");
@@ -207,17 +259,142 @@ namespace EchoRealm.Film
             if (oracle != null)
             {
                 oracle.SetMood("excited");
-                oracle.Speak("Speak what you wish to see. EchoRealm listens.");
-                yield return new WaitForSeconds(4f);
+                yield return SpeakAndWait(oracle, "Speak what you wish to see. EchoRealm listens.");
             }
 
             // Voice commands are now active (VoiceCommandProcessor is listening)
             // This act runs until FilmDirector decides to advance (time-based or command-count)
             Log("Act 2 active — voice commands enabled. Waiting for user interaction...");
 
-            // Act 2 doesn't auto-complete — FilmDirector controls the timing
-            // It listens for a minimum number of commands or a time limit
+            // The film lives on its own while it waits: scripted Oracle/Astronaut story beats.
+            // FilmDirector still owns the act's completion; StartAct/ApplyActState's
+            // StopAllCoroutines kills the beats on act change and on rewind.
+            if (ambientStory) yield return RunAct2AmbientStory();
         }
+
+        // ------------------------------------------------------------------
+        // Act 2 — ambient story beats ("The Echoes of the Grove")
+        // ------------------------------------------------------------------
+        //
+        // The Oracle guides the traveler through the grove waking "echoes", with a key beat where
+        // the Heart rejects him ALONE — planting the cooperation idea even for an audience that
+        // only watches. Deterministic (no randomness): every device runs the same beats from the
+        // same RPC_StartAct, so all headsets stay in sync. Waits pause while the world is pocketed.
+        // Scripted world effects go through ExecCmd → recorded in the timeline like any command,
+        // but NOT through FilmSync's user-command path, so DisruptionMeter never scores them.
+
+        private IEnumerator RunAct2AmbientStory()
+        {
+            var oracle = OracleController.Instance;
+            var astronaut = AstronautController.Instance;
+            var heart = HeartAnchor();
+            if (oracle == null || heart == null) yield break;
+
+            float ay = astronaut != null ? astronaut.transform.position.y : heart.position.y;
+
+            yield return WaitFilm(ambientStartDelay);
+
+            // B1 — toward the first echo (the standing stones). They move first, then he speaks.
+            Vector3 p1 = heart.position + StoryDirection(echoOneOffset);
+            oracle.SetMood("mysterious");
+            oracle.GlideTo(p1, 2.2f);
+            if (astronaut != null) astronaut.WalkTo(AtHeight(p1, ay), 0.4f);
+            yield return SpeakAndWait(oracle, "Come, traveler. The first echo sleeps by the standing stones.");
+            yield return WaitFilm(2.5f);
+
+            // B2 — the first echo wakes (fireflies); the traveler circles it, curious.
+            ExecCmd("spawn_fireflies");
+            if (astronaut != null) astronaut.PlayAnimation("LookAround");
+            yield return SpeakAndWait(oracle, "One echo wakes. Two more remain.");
+            if (astronaut != null) astronaut.WalkTo(AtHeight(heart.position + StoryDirection(new Vector3(0.4f, 0f, 1.0f)), ay), 0.4f);
+            yield return WaitFilm(4f);
+
+            // B3 — across the clearing, the second echo (butterflies). Both cross the grove.
+            Vector3 p2 = heart.position + StoryDirection(echoTwoOffset);
+            ExecCmd("spawn_butterflies");
+            oracle.SetMood("joyful");
+            oracle.GlideTo(p2, 2.8f);
+            if (astronaut != null) astronaut.WalkTo(AtHeight(p2, ay), 0.4f);
+            yield return SpeakAndWait(oracle, "There — the second dances on painted wings. Follow it.");
+            yield return WaitFilm(3f);
+
+            // …a little more wandering so the grove feels alive.
+            oracle.GlideTo(heart.position + StoryDirection(new Vector3(-0.7f, 0f, 1.1f)), 2.8f);
+            if (astronaut != null) astronaut.WalkTo(AtHeight(heart.position + StoryDirection(new Vector3(-0.9f, 0f, 0.8f)), ay), 0.4f);
+            yield return WaitFilm(5f);
+
+            // B4 — the KEY beat: the Heart rejects one alone (plants the cooperation idea).
+            oracle.GlideTo(heart.position + StoryDirection(new Vector3(0f, 0f, 0.5f)), 2.2f);
+            if (astronaut != null) astronaut.WalkTo(AtHeight(heart.position, ay), 0.55f);
+            yield return WaitFilm(3.5f);
+            ExecCmd("lightning");
+            if (astronaut != null) astronaut.PlayAnimation("Jump");
+            oracle.SetMood("warning");
+            yield return SpeakAndWait(oracle, "Patience, traveler! The heart will not open for one alone. It waits for two — or for the grove's own mercy.");
+            yield return WaitFilm(2.5f);
+
+            // B5 — regroup beside the heart; invite the audience in.
+            oracle.SetMood("mysterious");
+            oracle.GlideTo(heart.position + StoryDirection(new Vector3(0.7f, 0f, -0.4f)), 2.5f);
+            if (astronaut != null) astronaut.WalkTo(AtHeight(heart.position + StoryDirection(new Vector3(0.5f, 0f, -0.3f)), ay), 0.45f);
+            yield return SpeakAndWait(oracle, "The third echo waits in your voices. Speak, and shape his road home.");
+            yield return WaitFilm(4f);
+            if (astronaut != null) astronaut.PlayAnimation("LookAround");
+            yield return WaitFilm(4f);
+
+            // Default film: with no early advance from the audience, end Act 2 HERE (master only) so
+            // the story doesn't idle until the long max-duration timer. Clients no-op (not master).
+            FilmDirector.Instance?.ForceCompleteAct2("ambient story finished");
+        }
+
+        // Wait that pauses while the world is pocketed (the film is paused).
+        private IEnumerator WaitFilm(float seconds)
+        {
+            float t = 0f;
+            while (t < seconds)
+            {
+                var pocket = Interaction.WorldPocket.Instance;
+                if (pocket == null || !pocket.IsPocketed) t += Time.deltaTime;
+                yield return null;
+            }
+        }
+
+        // Speak a line and wait until it has (roughly) finished, so the NEXT line never cuts it off.
+        // Duration is estimated from the word count (TTS rate ≈ 2.4 words/s), clamped, plus a short
+        // tail. Pause-aware (freezes while pocketed), like WaitFilm.
+        private IEnumerator SpeakAndWait(OracleController oracle, string line, float tailGap = 0.6f)
+        {
+            if (oracle == null || string.IsNullOrEmpty(line)) yield break;
+            oracle.Speak(line);
+            int words = line.Split(' ').Length;
+            float dur = Mathf.Clamp(words * 0.42f + 1.2f, 2.8f, 13f) + tailGap;
+            yield return WaitFilm(dur);
+        }
+
+        // The Heart Stone — the story's anchor point (falls back to the Oracle's spot).
+        private Transform _heart;
+        private Transform HeartAnchor()
+        {
+            if (_heart == null)
+            {
+                var go = GameObject.Find("HeartStone");
+                if (go != null) _heart = go.transform;
+                else if (OracleController.Instance != null) _heart = OracleController.Instance.transform;
+            }
+            return _heart;
+        }
+
+        // Scene-local offset (metres at authored scale) → world offset, honoring the scene's
+        // current rotation and scale so waypoints stay inside the grove wherever it is placed.
+        private static Vector3 StoryDirection(Vector3 sceneLocalOffset)
+        {
+            var anchor = Networking.QRAnchorManager.Instance;
+            var sr = anchor != null ? anchor.SceneRoot : null;
+            if (sr == null) return sceneLocalOffset;
+            return sr.rotation * (sceneLocalOffset * Mathf.Max(sr.localScale.x, 0.01f));
+        }
+
+        private static Vector3 AtHeight(Vector3 p, float y) { p.y = y; return p; }
 
         /// <summary>Called by FilmDirector when Act 2 criteria are met.</summary>
         public void CompleteAct2()
@@ -237,13 +414,16 @@ namespace EchoRealm.Film
             string oracleLine  = decision?.oracle_narration ??
                                  "The grove's heart is hidden. Reach it — together.";
 
-            // Oracle delivers the AI-chosen transition narration
+            // Oracle delivers the AI-chosen transition narration, then an EXPLICIT instruction so the
+            // audience knows the concrete cooperative action required to finish the trial.
             var oracle = OracleController.Instance;
             if (oracle != null)
             {
                 oracle.SetMood(mood);
-                oracle.Speak(oracleLine);
-                yield return new WaitForSeconds(4f);
+                yield return SpeakAndWait(oracle, oracleLine);
+                oracle.SetMood("warning");
+                yield return SpeakAndWait(oracle,
+                    "Now — both of you, together — place your hands upon the Heart Stone. Only your joined touch will open the way.");
             }
 
             // Activate the obstacle matching the chosen variant
@@ -253,29 +433,60 @@ namespace EchoRealm.Film
 
             Log($"Act 3 active — variant '{variant}'. Waiting for cooperation events...");
 
-            // Monitor cooperation events (same win condition for all variants for now)
+            // Monitor cooperation events (same win condition for all variants for now). NEW: with an
+            // ambient timeout — a film without audience cooperation must still reach its ending.
             var cooperation = Interaction.CooperationDetector.Instance;
+            bool autoResolved = false;
             if (cooperation != null)
             {
+                float waited = 0f;
                 while (cooperation.CooperationCount < cooperationGoal)
+                {
+                    if (waited >= act3AmbientTimeout) { autoResolved = true; break; }
+                    var pocket = Interaction.WorldPocket.Instance;
+                    if (pocket == null || !pocket.IsPocketed) waited += 1f;   // paused while pocketed
                     yield return new WaitForSeconds(1f);
+                }
             }
             else
             {
                 yield return new WaitForSeconds(60f);
             }
 
+            if (autoResolved)
+            {
+                // Nobody cooperated — the grove answers for them: the Oracle circles the heart and
+                // opens it itself, and the traveler rejoices. (Default film, guaranteed to finish.)
+                if (oracle != null)
+                {
+                    oracle.SetMood("mysterious");
+                    oracle.Speak("Very well. The grove itself shall answer for you.");
+                }
+                var heart = HeartAnchor();
+                if (oracle != null && heart != null)
+                {
+                    oracle.GlideTo(heart.position + StoryDirection(new Vector3(0.8f, 0f, 0f)), 2f);
+                    yield return WaitFilm(2f);
+                    oracle.GlideTo(heart.position + StoryDirection(new Vector3(-0.8f, 0f, 0f)), 2.5f);
+                    yield return WaitFilm(2.5f);
+                }
+                AstronautController.Instance?.PlayAnimation("Jump");
+                yield return WaitFilm(2f);
+            }
+
             // Challenge solved
             if (oracle != null)
             {
                 oracle.SetMood("excited");
-                oracle.Speak("Together, you have found the way. The path is open!");
+                yield return SpeakAndWait(oracle, autoResolved
+                    ? "The heart yields. Go gently, traveler."
+                    : "Your hands moved as one — the heart opens! The way home is clear.");
             }
 
             if (activeObstacle != null)
                 activeObstacle.SetActive(false);
 
-            yield return new WaitForSeconds(3f);
+            yield return WaitFilm(1.5f);
 
             Log("Act 3 complete.");
             OnActCompleted?.Invoke(3);
@@ -343,14 +554,13 @@ namespace EchoRealm.Film
             if (portalEffect != null)
                 portalEffect.SetActive(true);
 
-            yield return new WaitForSeconds(2f);
+            yield return WaitFilm(1.5f);
 
             var oracle = OracleController.Instance;
             if (oracle != null && !string.IsNullOrEmpty(oracleLine))
             {
                 oracle.SetMood(mood);
-                oracle.Speak(oracleLine);
-                yield return new WaitForSeconds(4f);
+                yield return SpeakAndWait(oracle, oracleLine);
             }
 
             // The grove rewards a nurturing session (recorded world commands, like spoken ones).
@@ -359,27 +569,30 @@ namespace EchoRealm.Film
                 ExecCmd("day");
                 ExecCmd("spawn_butterflies");
                 ExecCmd("spawn_fireflies");
-                yield return new WaitForSeconds(2f);
+                yield return WaitFilm(2f);
             }
 
             yield return SpeakFinalMonologue(mood);
 
-            yield return new WaitForSeconds(2f);
+            // Explicit outcome: the traveler crosses ON HIS OWN now (no further cooperation needed).
+            if (oracle != null)
+            {
+                oracle.SetMood("joyful");
+                yield return SpeakAndWait(oracle, "The way stands open. Traveler — cross now, and go home.");
+            }
 
-            // Astronaut walks toward portal
+            // Astronaut walks toward the portal (robust: fall back to the portal effect's position if
+            // no explicit portalTarget is wired, so the homecoming walk always plays).
             var astronaut = AstronautController.Instance;
             if (astronaut != null)
             {
-                astronaut.StartPortalSequence();
-                yield return new WaitForSeconds(5f);
+                astronaut.StartPortalSequence(portalEffect != null ? portalEffect.transform : null);
+                yield return WaitFilm(6f);
             }
 
             // The Oracle gives a final blessing as the traveler departs.
             if (oracle != null)
-            {
-                oracle.Speak(passageBlessing);
-                yield return new WaitForSeconds(3f);
-            }
+                yield return SpeakAndWait(oracle, passageBlessing);
 
             Log("Act 4 complete — ending: Passage (traveler went home). Film ended.");
             OnActCompleted?.Invoke(4);

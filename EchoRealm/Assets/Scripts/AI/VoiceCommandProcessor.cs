@@ -32,6 +32,38 @@ namespace EchoRealm.AI
         [Tooltip("If true, speech recognition restarts automatically after each utterance.")]
         [SerializeField] private bool continuousListening = true;
 
+        [Header("Relevance Gate (ignore side conversations)")]
+        [Tooltip("Forward an utterance to the AI only when it contains at least one command-vocabulary " +
+                 "word. Stops side conversations (e.g. discussing in Romanian next to the headset, " +
+                 "transcribed as garbled English) from becoming world commands and polluting the " +
+                 "combined behavior profile. NOTE: gated utterances may still appear in the saved " +
+                 "transcript ('heard' fires before the gate) — for fully private discussion say " +
+                 "'stop listening', which keeps everything out.")]
+        [SerializeField] private bool relevanceGate = true;
+        [Tooltip("Vocabulary the gate looks for (lowercase substrings). Extend freely in the Inspector.")]
+        [SerializeField] private string[] commandVocabulary = new[]
+        {
+            // weather / sky
+            "rain", "storm", "wind", "fog", "mist", "cloud", "sun", "day", "night", "dark", "sky",
+            "light", "bright", "morning", "evening", "sunset", "sunrise", "dawn", "dusk", "stop",
+            // fire / disasters
+            "fire", "burn", "flame", "smoke", "earthquake", "quake", "shake", "lightning", "thunder",
+            // flora / fauna / world
+            "tree", "forest", "flower", "plant", "grow", "bloom", "butterfl", "firefl", "glow", "path",
+            "world", "scene", "grove",
+            // characters
+            "astronaut", "oracle", "dobby", "traveler", "jump", "wave", "dance", "celebrate", "scare",
+            "look", "cheer",
+            // object manipulation (when the wake word was dropped and nothing is gazed)
+            "bigger", "larger", "smaller", "tinier", "shrink", "rotate", "spin", "scale", "reset",
+            "big", "small", "move", "back", "open", "close", "clear", "block", "way", "star", "moon",
+        };
+
+        // Soft mute ("stop listening"): utterances are discarded until "start listening". A soft flag,
+        // not StopListening() — OnSpeechSessionCompleted auto-restarts the recognizer, which would
+        // silently undo a hard stop.
+        private bool _muted;
+
         [Header("Debug")]
         [SerializeField] private bool logEvents = true;
 
@@ -54,6 +86,10 @@ namespace EchoRealm.AI
 
         /// <summary>Fired when AI finishes processing and returns commands.</summary>
         public event Action<AICommandResponse> OnAIResponseReceived;
+
+        /// <summary>Fired when the soft-mute state toggles (true = muted/ignoring, false = listening).
+        /// Lets the "what I heard" label flash a "voice muted"/"voice listening" confirmation.</summary>
+        public event Action<bool> OnMuteChanged;
 
         /// <summary>Optional first-chance interceptor for raw recognized speech. If it returns true,
         /// the utterance is fully consumed and is NOT forwarded to the AI / narrative / ActionCollector
@@ -94,6 +130,18 @@ namespace EchoRealm.AI
         // ------------------------------------------------------------------
         // Public API
         // ------------------------------------------------------------------
+
+        /// <summary>Programmatically mute/unmute the command pipeline (same soft-mute as the
+        /// "stop listening" voice toggle — survives the recognizer's auto-restart because it gates
+        /// inside ProcessSpeechText). Used by the offline saved-scene viewer so a spoken command
+        /// can't mutate the reconstructed, read-only scene.</summary>
+        public void SetMuted(bool muted)
+        {
+            if (_muted == muted) return;
+            _muted = muted;
+            Log(muted ? "Voice MUTED (programmatic)." : "Voice UNMUTED (programmatic).");
+            OnMuteChanged?.Invoke(muted);
+        }
 
         /// <summary>
         /// Start listening for voice input.
@@ -144,7 +192,15 @@ namespace EchoRealm.AI
         {
             try
             {
-                speechRecognizer = new SpeechRecognizer();
+                // Force ENGLISH recognition explicitly. The parameterless constructor uses the device
+                // language, and nearby conversation in another language (e.g. Romanian) gets transcribed
+                // as garbled English "commands". Falls back to the device default if en-US is missing.
+                try { speechRecognizer = new SpeechRecognizer(new Windows.Globalization.Language("en-US")); }
+                catch (Exception lex)
+                {
+                    Debug.LogWarning($"[Voice] en-US speech pack unavailable ({lex.Message}) — using device default.");
+                    speechRecognizer = new SpeechRecognizer();
+                }
 
                 // Use free-form dictation (understands any phrase)
                 var dictationConstraint = new SpeechRecognitionTopicConstraint(
@@ -213,7 +269,9 @@ namespace EchoRealm.AI
             if (args.Result.Confidence == SpeechRecognitionConfidence.Rejected)
             {
                 Log("Speech rejected (too low confidence).");
-                UnityEngine.WSA.Application.InvokeOnAppThread(() => OnSpeechUnclear?.Invoke(args.Result.Text ?? "", 0f), false);
+                // While muted, don't spam "didn't catch that" over side conversations.
+                if (!_muted)
+                    UnityEngine.WSA.Application.InvokeOnAppThread(() => OnSpeechUnclear?.Invoke(args.Result.Text ?? "", 0f), false);
                 return;
             }
 
@@ -223,7 +281,8 @@ namespace EchoRealm.AI
             if (confidence < confidenceThreshold)
             {
                 Log($"Speech below threshold: '{text}' (confidence: {confidence:F2})");
-                UnityEngine.WSA.Application.InvokeOnAppThread(() => OnSpeechUnclear?.Invoke(text, confidence), false);
+                if (!_muted)
+                    UnityEngine.WSA.Application.InvokeOnAppThread(() => OnSpeechUnclear?.Invoke(text, confidence), false);
                 return;
             }
 
@@ -256,6 +315,12 @@ namespace EchoRealm.AI
             if (string.IsNullOrEmpty(h)) return;
             UnityEngine.WSA.Application.InvokeOnAppThread(() =>
             {
+                // Muted users are DISCUSSING — don't let their partial words resume a pocketed film.
+                if (_muted) return;
+                // A partial that looks like the START of a mute phrase ("stop…", "pause…") must not
+                // resume a pocketed film either — wait for the final result, which may be the mute.
+                string hl = h.ToLowerInvariant().TrimStart();
+                if (hl.StartsWith("stop") || hl.StartsWith("pause")) return;
                 Log($"Speech hypothesis (hearing you): '{h}'");
                 // While pocketed, resume on the FIRST partial word — don't wait for a final result.
                 var pocket = EchoRealm.Interaction.WorldPocket.Instance;
@@ -277,6 +342,50 @@ namespace EchoRealm.AI
         /// </summary>
         private async System.Threading.Tasks.Task ProcessSpeechText(string text)
         {
+            string meta = text.ToLowerInvariant();
+
+            // ---- Soft mute ----
+            // While muted, EVERY utterance is discarded except the unmute phrase — lets the users
+            // discuss freely (any language) without the AI reacting. Mute survives the recognizer's
+            // auto-restart because it gates here, not in Start/StopListening.
+            if (_muted)
+            {
+                if (meta.Contains("start listening") || meta.Contains("listen again") ||
+                    meta.Contains("resume listening") || meta.Contains("wake up"))
+                {
+                    _muted = false;
+                    Log("Voice UNMUTED — commands are interpreted again.");
+                    OnMuteChanged?.Invoke(false);
+                }
+                // Allow PAUSING the film while discussing — "pocket" works muted and STAYS muted,
+                // so mute+pocket (the discuss-privately combo) is reachable by voice in any order.
+                else if (meta.Contains("pocket") && !meta.Contains("unpocket") && !meta.Contains("un pocket"))
+                {
+                    Log("Meta-command POCKET while muted — pausing the film (still muted).");
+                    EchoRealm.Interaction.WorldPocket.Instance?.Pocket();
+                }
+                return;
+            }
+            if (meta.Contains("stop listening") || meta.Contains("pause listening") ||
+                meta.Contains("stop the listening"))
+            {
+                _muted = true;
+                Log("Voice MUTED — say 'start listening' to resume command interpretation.");
+                OnMuteChanged?.Invoke(true);
+                return;
+            }
+            // Unmute words said while NOT muted must be consumed here too — "start listening"
+            // contains "start", which would otherwise begin the film on the pre-film START branch.
+            if (meta.Contains("start listening") || meta.Contains("resume listening") ||
+                meta.Contains("listen again"))
+            {
+                Log("Already listening.");
+                return;
+            }
+
+            // Fire the "heard" event only for speech that survived the mute — TimelineRecorder (the
+            // saved transcript) and NarrativeManager (the final-monologue context) subscribe to it,
+            // and muted discussion must not leak into either.
             LastRecognizedText = text;
             OnSpeechRecognized?.Invoke(text);
 
@@ -288,7 +397,6 @@ namespace EchoRealm.AI
             // Meta-commands handled locally (pocket / unpocket the whole scene) — they bypass the
             // AI/network command pipeline. The speech recognizer often splits "unpocket" into
             // "un pocket", so match several forms; "restore"/"resume" also work as clear unpocket words.
-            string meta = text.ToLowerInvariant();
 
             // While the world is pocketed, the ONLY sensible intent is to bring it back. The recognizer
             // is finicky (a clean "resume" often never finalizes), so be maximally forgiving: ANY
@@ -306,7 +414,12 @@ namespace EchoRealm.AI
             // begins Act 1 on EVERY headset at once (networked via FilmSync → the master).
             var film = EchoRealm.Film.FilmDirector.Instance;
             bool filmPlaying = film != null && film.IsPlaying;
-            if (!filmPlaying &&
+            bool filmFinished = film != null && film.IsFinished;
+            // START only BEFORE the film begins — and NOT after it has ended. Without the
+            // !filmFinished guard, a stray "start a fire" said after the finale (when IsPlaying is
+            // false again) re-triggers START and restarts the whole film. After the ending the scene
+            // stays put; re-view a saved run via the Save prompt's "View saved scene" instead.
+            if (!filmPlaying && !filmFinished &&
                 (meta.Contains("start") || meta.Contains("begin") ||
                  meta.Contains("lets go") || meta.Contains("let's go") || meta.Contains("let us go")))
             {
@@ -342,6 +455,29 @@ namespace EchoRealm.AI
             bool addressed = lead.StartsWith("claude") || lead.StartsWith("claud")
                           || lead.StartsWith("cloud")  || lead.StartsWith("clyde") || lead.StartsWith("klaus");
 
+            // ---- Palm hold (optional PalmHold component; null-safe, additive) ----
+            // "bring the world to my palm" → shrink the scene onto the open palm and follow it;
+            // "make it big again" / "put the world back" → restore the pre-hold pose. Networked via
+            // the same scene-transform streaming used for hand grabs. Skipped for "Claude, ..."
+            // phrases so addressed OBJECT commands keep their existing routing.
+            var palmHold = EchoRealm.Interaction.PalmHold.Instance;
+            if (palmHold != null && !addressed)
+            {
+                // Destination phrasings only — bare "palm"/"the palm" would hijack "grow the palm trees".
+                bool wantsPalm = meta.Contains("my palm") || meta.Contains("to the palm") ||
+                                 meta.Contains("in the palm") || meta.Contains("into the palm") ||
+                                 meta.Contains("on the palm") ||
+                                 (meta.Contains("my hand")
+                                  && (meta.Contains("scene") || meta.Contains("world") || meta.Contains("come") || meta.Contains("bring")));
+                if (meta.Contains("palm tree")) wantsPalm = false;
+                bool wantsRelease = palmHold.IsHolding &&
+                                    (meta.Contains("big again") || meta.Contains("scene back") ||
+                                     meta.Contains("world back") || meta.Contains("put it back") ||
+                                     meta.Contains("release"));
+                if (wantsRelease) { palmHold.Release(); return; }
+                if (wantsPalm) { palmHold.TryHold(); return; }
+            }
+
             // The HoloLens recognizer often drops/garbles the leading wake word ("club make this smaller"
             // → final transcript "make this smaller"), so the wake-word check alone misses real object
             // commands. ALSO treat a phrase as an object command when you're gazing at a manipulable prop
@@ -357,6 +493,16 @@ namespace EchoRealm.AI
             if (addressed || looksLikeObjectCommand)
             {
                 await HandleObjectCommand(text);
+                return;
+            }
+
+            // ---- Relevance gate ----
+            // Whatever reaches this point would be sent to the AI as a world command. Side
+            // conversations transcribed as garbled English contain none of the command vocabulary —
+            // drop them silently instead of bothering the AI / profile / transcript with them.
+            if (relevanceGate && !ContainsCommandVocabulary(meta))
+            {
+                Log($"Ignored (no command vocabulary): '{text}'");
                 return;
             }
 
@@ -403,6 +549,16 @@ namespace EchoRealm.AI
             {
                 Log("AI returned null response.", isWarning: true);
             }
+        }
+
+        // True if the (lowercased) utterance contains at least one command-vocabulary word — the
+        // relevance gate's test. Empty/null vocabulary disables the gate (everything passes).
+        private bool ContainsCommandVocabulary(string meta)
+        {
+            if (commandVocabulary == null || commandVocabulary.Length == 0) return true;
+            foreach (var w in commandVocabulary)
+                if (!string.IsNullOrEmpty(w) && meta.Contains(w)) return true;
+            return false;
         }
 
         // True if eye-gaze currently lands on a registered manipulable prop. Lets object commands work

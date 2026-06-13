@@ -26,6 +26,18 @@ namespace EchoRealm.Networking
         /// if unsubscribed.</summary>
         public static event System.Action<string, int, float, Vector3, float> OnObjectOpApplied;
 
+        /// <summary>Fired on every device right after a rewind has been applied locally (the moment
+        /// the world jumps back). Carries the target timeline time. Observational — used by RewindFX
+        /// for the shared sound/visual cue. No effect if unsubscribed.</summary>
+        public static event System.Action<float> OnRewindApplied;
+
+        /// <summary>Fired on every device when USER-spoken world commands are applied (the live
+        /// RPC_ApplyCommands path — the film's own scripted ambient commands, rewind replays and
+        /// late-join snapshots do NOT go through it). The identical stream on every device lets
+        /// DisruptionMeter score audience disruption deterministically everywhere. Observational —
+        /// no effect if unsubscribed.</summary>
+        public static event System.Action<string[]> OnUserCommandsApplied;
+
         // Minimal late-join snapshot. Live transitions go via RPC_StartAct.
         [Networked] public int CurrentAct { get; set; }
         [Networked] public NetworkString<_16> ChosenVariant { get; set; }
@@ -181,6 +193,29 @@ namespace EchoRealm.Networking
             return _sceneRoot != null;
         }
 
+        /// <summary>Force-push THIS device's current SceneRoot pose as the shared networked truth.
+        /// Used by programmatic drivers (PalmHold) right after they restore a pose — without it,
+        /// the stale streamed value in SceneRelPos/Scale would snap the scene back via Render() on
+        /// every device. Master writes the networked props directly; a client sends one push RPC.
+        /// Works even while pocketed. Additive — nothing existing calls it.</summary>
+        public void RepublishSceneTransform()
+        {
+            if (!TryGetSceneRefs()) return;
+            if (HasStateAuthority)
+            {
+                PublishSceneTransform(force: true);
+            }
+            else
+            {
+                Quaternion invAnchor = Quaternion.Inverse(_anchor.AnchorRotation);
+                Vector3 relPos = invAnchor * (_sceneRoot.position - _anchor.AnchorPosition);
+                Quaternion relRot = invAnchor * _sceneRoot.rotation;
+                float scale = _sceneRoot.localScale.x;
+                if (scale <= 0f) scale = 0.0001f;
+                RPC_PushSceneTransform(relPos, relRot, scale);
+            }
+        }
+
         // Express the SceneRoot's world pose relative to the QR anchor (frame-independent) and write
         // it to networked state. Relative-to-anchor is what keeps it co-located: each device composes
         // the same relative offset with ITS OWN physical QR pose.
@@ -312,11 +347,13 @@ namespace EchoRealm.Networking
         {
             var exec = CommandExecutor.Instance;
             if (exec == null || string.IsNullOrEmpty(commandsCsv)) return;
+            var applied = new System.Collections.Generic.List<string>();
             foreach (var raw in commandsCsv.Split(','))
             {
                 string cmd = raw.Trim();
-                if (cmd.Length > 0) exec.ExecuteCommand(cmd);
+                if (cmd.Length > 0) { exec.ExecuteCommand(cmd); applied.Add(cmd); }
             }
+            if (applied.Count > 0) OnUserCommandsApplied?.Invoke(applied.ToArray());
         }
 
         // Master: append commands to the log and republish the capped snapshot to networked state.
@@ -537,6 +574,9 @@ namespace EchoRealm.Networking
                     string cmd = raw.Trim();
                     if (cmd.Length > 0) exec.ExecuteCommand(cmd);
                 }
+
+            // The rewind has fully applied on THIS device — let observers (RewindFX) react in sync.
+            OnRewindApplied?.Invoke(t);
         }
 
         // Cap the world CSV to the networked-string budget (most-recent wins) — same rule as RecordAndPublishWorldState.

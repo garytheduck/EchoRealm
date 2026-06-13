@@ -51,6 +51,7 @@ namespace EchoRealm.AI
             if (vcp == null) return;                       // not ready yet — Start (or a later enable) retries
             vcp.OnSpeechRecognized += ShowHeard;
             vcp.OnSpeechUnclear += ShowUnclear;
+            vcp.OnMuteChanged += ShowMute;
             _subscribed = true;
         }
 
@@ -61,6 +62,7 @@ namespace EchoRealm.AI
             {
                 vcp.OnSpeechRecognized -= ShowHeard;
                 vcp.OnSpeechUnclear -= ShowUnclear;
+                vcp.OnMuteChanged -= ShowMute;
             }
             _subscribed = false;
         }
@@ -83,6 +85,10 @@ namespace EchoRealm.AI
         }
 
         private void ShowHeard(string text) => Show($"heard: \"{text}\"", heardColor);
+
+        // Mute toggle confirmation (flashed once per toggle). Amber = muted/ignoring, green = listening.
+        private void ShowMute(bool muted) =>
+            Show(muted ? "voice muted\n(say \"start listening\")" : "voice listening", muted ? unclearColor : heardColor);
 
         private void ShowUnclear(string text, float confidence)
         {

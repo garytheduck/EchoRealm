@@ -87,6 +87,11 @@ namespace EchoRealm.Film
 
             if (actManager != null)
                 actManager.OnActCompleted += OnActCompleted;
+
+            // Disruption-aware pacing (additive): scores audience interventions and lets heavy
+            // disruption trigger the AI decision early; without it the film paces as before.
+            if (DisruptionMeter.Instance == null)
+                gameObject.AddComponent<DisruptionMeter>();
         }
 
         private void Update()
@@ -138,9 +143,27 @@ namespace EchoRealm.Film
             IsFinished = false;
             Log("Film STARTED.");
 
+            // Clear any interactions made BEFORE the film began (boot/QR experimentation): otherwise
+            // pre-film commands inflate the behavior profile and can instantly satisfy the Act-2 voice
+            // quota (skipping the ambient beats) or the disruption score. The film starts from zero.
+            AI.ActionCollector.Instance?.Profile.Reset();
+            AI.ActionCollector.Instance?.ResetForNewAct();
+
             SessionLogger.Instance?.LogEvent(EventType.System, "Film started");
 
             GoToAct(1, null);
+        }
+
+        /// <summary>Disruption hook: complete Act 2 NOW (heavy audience disruption), so the AI
+        /// decides the branch immediately instead of waiting for the command quota / timer.
+        /// Clears act2Active BEFORE completing — calling ActManager.CompleteAct2 directly would
+        /// let Update fire it a second time (double AI decision + double act transition).</summary>
+        public void ForceCompleteAct2(string reason)
+        {
+            if (!IsMaster || !act2Active || actManager == null) return;
+            act2Active = false;
+            Log($"Act 2 advancing EARLY: {reason}");
+            actManager.CompleteAct2();
         }
 
         /// <summary>
@@ -231,6 +254,18 @@ namespace EchoRealm.Film
                     break;
 
                 case 3:
+                    // Default-ending floor: an audience that mostly WATCHED gets the guaranteed
+                    // outcome — the traveler goes home — without consulting the AI at all.
+                    var meter = DisruptionMeter.Instance;
+                    if (meter != null && meter.TotalPoints < meter.DefaultEndingFloor)
+                    {
+                        Log($"Low disruption ({meter.TotalPoints:F1} pts < floor {meter.DefaultEndingFloor:F0}) — " +
+                            "default Passage ending, AI skipped.");
+                        _act4Decision = null;
+                        GoToAct(4, null);
+                        break;
+                    }
+
                     // Ask AI which Act 4 ending to play based on how Act 3 went.
                     _act4Decision = await RequestActDecision(fromAct: 3, toAct: 4);
                     GoToAct(4, _act4Decision);

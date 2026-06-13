@@ -39,11 +39,22 @@ namespace EchoRealm.Interaction
         // Resume. Set false on pocket; set true again only once the scene leaves the zone.
         private bool _armed = true;
 
+        [Header("Resume method")]
+        [Tooltip("OFF (default): resume the pocketed world with a 'push from the chest forward' hand " +
+                 "gesture (PocketResumeGesture). ON: also show the tappable floating Resume button. " +
+                 "Voice resume (any speech while pocketed) always works either way.")]
+        [SerializeField] private bool useResumeButton = false;
+
         [Header("Debug")]
         [SerializeField] private bool logEvents = true;
 
         /// <summary>True while the world is pocketed and the film is paused.</summary>
         public bool IsPocketed { get; private set; }
+
+        /// <summary>Other systems (e.g. PalmHold) set this while they INTENTIONALLY keep the scene
+        /// small/close/low — exactly the auto-pocket gesture's zone — so the gesture doesn't fire.
+        /// Voice "pocket" still works. Default false: behavior identical to before.</summary>
+        public static bool SuppressAutoPocket;
 
         public static WorldPocket Instance { get; private set; }
 
@@ -61,13 +72,22 @@ namespace EchoRealm.Interaction
                 if (go != null) sceneRoot = go.transform;
             }
 
-            // Ensure a Resume button exists (on this persistent object, NOT under SceneRoot).
-            if (ResumeButton.Instance == null) gameObject.AddComponent<ResumeButton>();
+            // Ensure a Resume button exists (on this persistent object, NOT under SceneRoot). It is
+            // only SHOWN when useResumeButton is on; otherwise the push-forward gesture is the way back.
+            if (useResumeButton && ResumeButton.Instance == null) gameObject.AddComponent<ResumeButton>();
+
+            // Push-from-the-chest-forward gesture to resume (replaces the button by default).
+            if (PocketResumeGesture.Instance == null) gameObject.AddComponent<PocketResumeGesture>();
+
+            // Ensure the palm-hold driver exists too (same persistent-object convention; opt-in
+            // voice feature — without a working hand pose it simply never activates).
+            if (PalmHold.Instance == null) gameObject.AddComponent<PalmHold>();
         }
 
         private void Update()
         {
             if (IsPocketed || sceneRoot == null) return;
+            if (SuppressAutoPocket) return;   // a programmatic driver (PalmHold) owns the small/close pose
             var cam = Camera.main;
             if (cam == null) return;
 
@@ -81,7 +101,13 @@ namespace EchoRealm.Interaction
             // Re-arm only after the scene LEAVES the zone, so unpocket (which restores the small/close/low
             // pose) doesn't instantly re-pocket — that caused the world to flicker away after each Resume.
             if (!inPocketZone) { _armed = true; return; }
-            if (_armed) Pocket();
+
+            // The gesture is by definition a LOCAL hand action: only fire while THIS device is driving
+            // the scene (grab). A pose streamed from another headset (their grab, their palm-hold)
+            // entering our pocket zone must not pocket the shared world for everyone.
+            bool locallyDriven = SceneManipulationReporter.Instance != null
+                                 && SceneManipulationReporter.Instance.IsManipulating;
+            if (_armed && locallyDriven) Pocket();
         }
 
         // Public entry points (gesture/voice). They REQUEST a networked pocket so every headset
@@ -108,6 +134,12 @@ namespace EchoRealm.Interaction
         public void ApplyPocket()
         {
             if (IsPocketed || sceneRoot == null) return;
+
+            // If the scene is being held in a palm on THIS device, return it to its pre-hold pose
+            // FIRST — otherwise we'd save (and later restore) the transient tiny palm pose, stranding
+            // the shared world at 4.5% scale in mid-air after an unpocket.
+            if (PalmHold.Instance != null && PalmHold.Instance.IsHolding) PalmHold.Instance.Release();
+
             _savedScale = sceneRoot.localScale;
             _savedPos   = sceneRoot.position;
             _savedRot   = sceneRoot.rotation;
@@ -120,10 +152,12 @@ namespace EchoRealm.Interaction
             // which would block the networked "unpocket" from ever arriving. The film is paused via
             // hiding SceneRoot + FilmDirector's pocket gate instead, so networking stays alive.
 
-            // Show the floating Resume button ONLY on the device that pocketed it.
-            if (_iInitiated) ResumeButton.Instance?.Show();
+            // Show the floating Resume button ONLY on the device that pocketed it, and ONLY if the
+            // button mode is on; by default the push-forward gesture (or voice) brings the world back.
+            if (_iInitiated && useResumeButton) ResumeButton.Instance?.Show();
 
-            if (logEvents) Debug.Log("[WorldPocket] Pocketed — world hidden & film paused for all. Say 'resume' or tap Resume.");
+            if (logEvents) Debug.Log("[WorldPocket] Pocketed — world hidden & film paused for all. " +
+                                     "Push your palm forward from the chest to resume (or say 'resume').");
         }
 
         /// <summary>Local effect (runs on EVERY headset): restore the world where it was, resume time.</summary>

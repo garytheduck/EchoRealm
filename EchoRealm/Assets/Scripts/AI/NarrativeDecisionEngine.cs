@@ -113,6 +113,12 @@ namespace EchoRealm.AI
                 ? Interaction.EyeTrackingManager.Instance.GetGazeSummary()
                 : "nothing specific";
 
+            // How forcefully the audience intervened — lets the AI scale the drama of its choice
+            // (a calm audience leans default/triumphant; a stormy one earns consequences).
+            string disruptionSummary = DisruptionMeter.Instance != null
+                ? $" Audience disruption level: {DisruptionMeter.Instance.LevelDescription}."
+                : "";
+
             var manager = AIManager.Instance;
             if (manager == null || !manager.IsReachable)
             {
@@ -129,7 +135,7 @@ namespace EchoRealm.AI
                 "You are the AI director of EchoRealm, a mixed reality film on HoloLens 2. " +
                 $"Act {fromAct} has just ended and Act {toAct} is about to begin. " +
                 $"Here is how the players behaved during Act {fromAct}: {behaviorSummary} " +
-                $"What the players watched most: {gazeSummary}. " +
+                $"What the players watched most: {gazeSummary}.{disruptionSummary} " +
                 $"Available Act {toAct} variants:\n{variantLines}" +
                 "Choose the variant that best matches the players' behavior and creates the most engaging narrative arc. " +
                 "Respond ONLY with valid JSON — no markdown, no explanation — containing exactly these fields: " +
