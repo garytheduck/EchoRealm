@@ -24,6 +24,15 @@ namespace EchoRealm.Film
         private float _startTime = -1f;
         private bool _subscribedInstances;
 
+        [Header("Character motion capture (for offline saved-scene replay)")]
+        [Tooltip("Seconds between character pose samples while the film plays.")]
+        [SerializeField] private float poseSampleInterval = 0.2f;
+        [Tooltip("Only record a pose when the character moved at least this far (m, SceneRoot-local) — keeps the file small while idle.")]
+        [SerializeField] private float poseMoveThreshold = 0.02f;
+        private float _lastPoseSample = -999f;
+        private Vector3 _lastAstroLocal; private bool _hasAstro;
+        private Vector3 _lastOracleLocal; private bool _hasOracle;
+
         private void Awake()
         {
             if (Instance != null && Instance != this) { Destroy(this); return; }
@@ -82,6 +91,36 @@ namespace EchoRealm.Film
         {
             if (_startTime < 0f) _startTime = Time.time;
             return Time.time - _startTime;
+        }
+
+        // Sample the astronaut + Oracle poses while the film plays, so the offline saved-scene viewer
+        // can replay their MOVEMENT (otherwise they stay frozen at the final pose). Master-only in
+        // practice: FilmDirector.IsPlaying is only true on the master, which is also the only device
+        // that saves. Additive — CharacterPose events are ignored by the reconstruction engine.
+        private void Update()
+        {
+            if (RewindInProgress) return;
+            var film = FilmDirector.Instance;
+            if (film == null || !film.IsPlaying) return;
+            if (Now() - _lastPoseSample < poseSampleInterval) return;
+            _lastPoseSample = Now();
+
+            var sr = QRAnchorManager.Instance != null ? QRAnchorManager.Instance.SceneRoot : null;
+            SamplePose("astronaut", AstronautController.Instance != null ? AstronautController.Instance.transform : null,
+                       sr, ref _lastAstroLocal, ref _hasAstro);
+            SamplePose("oracle", OracleController.Instance != null ? OracleController.Instance.transform : null,
+                       sr, ref _lastOracleLocal, ref _hasOracle);
+        }
+
+        private void SamplePose(string id, Transform tr, Transform sceneRoot, ref Vector3 lastLocal, ref bool has)
+        {
+            if (tr == null) return;
+            Vector3 lpos = sceneRoot != null ? sceneRoot.InverseTransformPoint(tr.position) : tr.position;
+            Quaternion lrot = sceneRoot != null ? Quaternion.Inverse(sceneRoot.rotation) * tr.rotation : tr.rotation;
+            // Skip near-duplicate samples while the character stands still (keeps the saved file small).
+            if (has && (lpos - lastLocal).sqrMagnitude < poseMoveThreshold * poseMoveThreshold) return;
+            has = true; lastLocal = lpos;
+            Log.AddCharacterPose(id, lpos, lrot, Now());
         }
 
         // While a rewind is reconstructing the scene, CommandExecutor re-fires OnCommandExecuted for the
