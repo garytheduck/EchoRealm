@@ -49,6 +49,17 @@ namespace EchoRealm.Interaction
 
         private void Rewind(float seconds)
         {
+            // Rewind is meaningful only once the film is running (an act has started). Before START the
+            // menu is still reachable, and a pre-film rewind corrupts the film state — it marks the film
+            // as playing, which then blocks the spoken START. CurrentAct is set on every device (via
+            // RPC_StartAct), so this gate works on master and client alike.
+            var am = EchoRealm.Film.ActManager.Instance;
+            if (am == null || am.CurrentAct < 1)
+            {
+                Debug.Log("[RewindMenu] Rewind ignored — the film hasn't started yet.");
+                return;
+            }
+
             // Debounce: the panel sits in view and a single press can raise OnClicked repeatedly,
             // which otherwise floods rewinds. Ignore presses within the cooldown of the last one.
             if (Time.unscaledTime - _lastRewind < rewindCooldown) return;

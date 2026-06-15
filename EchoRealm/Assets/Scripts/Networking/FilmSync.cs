@@ -508,6 +508,17 @@ namespace EchoRealm.Networking
         private void DoRewind(float seconds)
         {
             if (!HasStateAuthority) return;
+            // Rewind only makes sense while the film is actually PLAYING. The RewindMenu is reachable
+            // before the spoken START (and after the finale); a stray rewind there calls
+            // FilmDirector.RewindToAct, which sets IsPlaying = true. That then BLOCKS START (it is gated
+            // on !IsPlaying), so "start" falls through to the AI as a world command and the film never
+            // begins. Ignore rewinds outside live playback.
+            var director = EchoRealm.Film.FilmDirector.Instance;
+            if (director == null || !director.IsPlaying)
+            {
+                Debug.Log("[FilmSync] Rewind ignored — the film isn't playing.");
+                return;
+            }
             var recorder = EchoRealm.Film.TimelineRecorder.Instance;
             if (recorder == null) return;
 
