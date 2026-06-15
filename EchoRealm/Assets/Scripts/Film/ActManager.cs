@@ -42,19 +42,20 @@ namespace EchoRealm.Film
         [SerializeField] private bool ambientStory = true;
         [Tooltip("Seconds after Act 2 starts before the first story beat.")]
         [SerializeField] private float ambientStartDelay = 6f;
-        [Tooltip("First echo waypoint — scene-local metres relative to the Heart Stone.")]
-        [SerializeField] private Vector3 echoOneOffset = new Vector3(1.2f, 0f, 0.6f);
-        [Tooltip("Second echo waypoint — scene-local metres relative to the Heart Stone.")]
-        [SerializeField] private Vector3 echoTwoOffset = new Vector3(-1.1f, 0f, -0.5f);
-        [Tooltip("Max horizontal distance (metres, authored scale) any ambient waypoint may sit from " +
-                 "the Heart Stone. Keeps both characters wandering INSIDE the grove instead of drifting " +
-                 "off to one side. Code default — no scene edit needed.")]
-        [SerializeField] private float ambientWanderRadius = 0.9f;
+        [Tooltip("Centre of the roaming rectangle, RELATIVE to the Heart Stone (scene-local metres). " +
+                 "Shift it toward the open space (e.g. toward the camera / to the right) when the Heart " +
+                 "Stone sits at one edge of the bushes rather than in the middle.")]
+        [SerializeField] private Vector3 wanderCenterOffset = Vector3.zero;
+        [Tooltip("Half-size of the roaming rectangle in authored metres (X = sideways, Y-field = depth/Z). " +
+                 "Both characters pick varied points INSIDE this box, so they roam the WHOLE grove " +
+                 "(toward the camera, to the right, anywhere) without ever leaving it. Tune it to your " +
+                 "bushes — the wireframe gizmo shows the box around the Heart Stone when ActManager is selected.")]
+        [SerializeField] private Vector2 wanderHalfExtents = new Vector2(0.9f, 0.9f);
 
         [Header("Act 3 — Ambient fallback")]
         [Tooltip("If nobody cooperates for this long (seconds), the grove resolves the trial by " +
                  "itself — the default film always reaches its ending without the audience.")]
-        [SerializeField] private float act3AmbientTimeout = 30f;
+        [SerializeField] private float act3AmbientTimeout = 20f;
 
         [Header("Act 3 — Cooperative Challenge")]
         [Tooltip("Default obstacle (used for 'cooperative' variant or when AI is unavailable).")]
@@ -297,23 +298,23 @@ namespace EchoRealm.Film
 
             yield return WaitFilm(ambientStartDelay);
 
-            // B1 — toward the first echo (the standing stones). They move first, then he speaks.
-            Vector3 p1 = heart.position + StoryDirection(echoOneOffset);
+            // B1 — toward the first echo (among the old trees). They move first, then he speaks.
+            Vector3 p1 = WanderPoint();   // varied point inside the roaming box (was a fixed left-leaning offset)
             oracle.SetMood("mysterious");
             oracle.GlideTo(p1, 2.2f);
             if (astronaut != null) astronaut.WalkTo(AtHeight(p1, ay), 0.4f);
-            yield return SpeakAndWait(oracle, "Come, traveler. The first echo sleeps by the standing stones.");
+            yield return SpeakAndWait(oracle, "Come, traveler. The first echo sleeps among the old trees.");
             yield return WaitFilm(2.5f);
 
             // B2 — the first echo wakes (fireflies); the traveler circles it, curious.
             ExecCmd("spawn_fireflies");
             if (astronaut != null) astronaut.PlayAnimation("LookAround");
             yield return SpeakAndWait(oracle, "One echo wakes. Two more remain.");
-            if (astronaut != null) astronaut.WalkTo(AtHeight(heart.position + StoryDirection(new Vector3(0.4f, 0f, 1.0f)), ay), 0.4f);
+            if (astronaut != null) astronaut.WalkTo(AtHeight(WanderPoint(), ay), 0.4f);
             yield return WaitFilm(4f);
 
             // B3 — across the clearing, the second echo (butterflies). Both cross the grove.
-            Vector3 p2 = heart.position + StoryDirection(echoTwoOffset);
+            Vector3 p2 = WanderPoint();   // varied point inside the roaming box (was a fixed left-leaning offset)
             ExecCmd("spawn_butterflies");
             oracle.SetMood("joyful");
             oracle.GlideTo(p2, 2.8f);
@@ -322,8 +323,8 @@ namespace EchoRealm.Film
             yield return WaitFilm(3f);
 
             // …a little more wandering so the grove feels alive.
-            oracle.GlideTo(heart.position + StoryDirection(new Vector3(-0.7f, 0f, 1.1f)), 2.8f);
-            if (astronaut != null) astronaut.WalkTo(AtHeight(heart.position + StoryDirection(new Vector3(-0.9f, 0f, 0.8f)), ay), 0.4f);
+            oracle.GlideTo(WanderPoint(), 2.8f);
+            if (astronaut != null) astronaut.WalkTo(AtHeight(WanderPoint(), ay), 0.4f);
             yield return WaitFilm(5f);
 
             // B4 — the KEY beat: the Heart rejects one alone (plants the cooperation idea).
@@ -387,23 +388,41 @@ namespace EchoRealm.Film
             return _heart;
         }
 
-        // Scene-local offset (metres at authored scale) → world offset, honoring the scene's
-        // current rotation and scale so waypoints stay inside the grove wherever it is placed.
-        // The horizontal offset is clamped to ambientWanderRadius FIRST, so neither character can
-        // wander outside the grove (the targets are all heart.position + StoryDirection(offset)).
+        // Scene-local offset (metres at authored scale) → world offset, honoring the scene's current
+        // rotation and scale so waypoints land in the right spot wherever the grove is placed.
         private Vector3 StoryDirection(Vector3 sceneLocalOffset)
         {
-            // Contain wandering: cap the horizontal distance from the Heart Stone, keep the direction.
-            Vector3 flat = new Vector3(sceneLocalOffset.x, 0f, sceneLocalOffset.z);
-            if (flat.magnitude > ambientWanderRadius)
-                flat = flat.normalized * ambientWanderRadius;
-            sceneLocalOffset = new Vector3(flat.x, sceneLocalOffset.y, flat.z);
-
             var anchor = Networking.QRAnchorManager.Instance;
             var sr = anchor != null ? anchor.SceneRoot : null;
             if (sr == null) return sceneLocalOffset;
             return sr.rotation * (sceneLocalOffset * Mathf.Max(sr.localScale.x, 0.01f));
         }
+
+        // A varied WORLD point inside the scene-local roaming rectangle (wanderCenterOffset ±
+        // wanderHalfExtents, around the Heart Stone). Replaces the old fixed, left-leaning waypoints so
+        // both characters roam the whole grove EVENLY — toward the camera, to the right, anywhere in the
+        // box — yet never leave it. Symmetric by construction, so there's no one-sided drift.
+        private Vector3 WanderPoint()
+        {
+            var h = HeartAnchor();
+            Vector3 basePos = h != null ? h.position : Vector3.zero;
+            float x = wanderCenterOffset.x + UnityEngine.Random.Range(-wanderHalfExtents.x, wanderHalfExtents.x);
+            float z = wanderCenterOffset.z + UnityEngine.Random.Range(-wanderHalfExtents.y, wanderHalfExtents.y);
+            return basePos + StoryDirection(new Vector3(x, wanderCenterOffset.y, z));
+        }
+
+#if UNITY_EDITOR
+        // Editor aid: draw the roaming rectangle around the Heart Stone so it's easy to size it to the
+        // bushes. Approximate (uses the edit-time Heart Stone position; runtime QR rotation/scale differ).
+        private void OnDrawGizmosSelected()
+        {
+            var hs = GameObject.Find("HeartStone");
+            if (hs == null) return;
+            Vector3 c = hs.transform.position + wanderCenterOffset;
+            Gizmos.color = new Color(0.2f, 0.8f, 1f, 0.7f);
+            Gizmos.DrawWireCube(c, new Vector3(wanderHalfExtents.x * 2f, 0.1f, wanderHalfExtents.y * 2f));
+        }
+#endif
 
         private static Vector3 AtHeight(Vector3 p, float y) { p.y = y; return p; }
 
