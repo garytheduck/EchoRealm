@@ -72,6 +72,7 @@ namespace EchoRealm.AI
         // INTEND to listen but no session is live. Additive / observer-only.
         private float _rearmCheckTimer;
         private bool _watchdogStopped;   // true after an explicit StopListening; cleared by StartListening
+        private bool _recognizerReady;   // true once the recognizer is built + constraints compiled (init retries until then)
 
         [Header("Debug")]
         [SerializeField] private bool logEvents = true;
@@ -197,7 +198,7 @@ namespace EchoRealm.AI
         // so the watchdog still keeps the mic alive while muted, exactly as intended.
         private void Update()
         {
-            if (speechRecognizer == null || !continuousListening || _watchdogStopped) return;
+            if (!_recognizerReady || speechRecognizer == null || !continuousListening || _watchdogStopped) return;
             _rearmCheckTimer += Time.unscaledDeltaTime;   // unscaled → immune to any time-scale change
             if (_rearmCheckTimer < 1.0f) return;
             _rearmCheckTimer = 0f;
@@ -222,8 +223,37 @@ namespace EchoRealm.AI
 #if WINDOWS_UWP
         private async Task InitializeSpeechRecognition()
         {
+            // The microphone consent broker + audio stack aren't always ready the instant the app
+            // launches. On a FRESH install the consent dialog adds a delay, so init happens to succeed;
+            // on a plain RELAUNCH there's no dialog, init races the audio stack, the first
+            // CompileConstraintsAsync fails — and the old code gave up for the whole session. That is the
+            // "mic works right after a deploy but not after closing & reopening" symptom. Retry a few
+            // times with a delay so a cold relaunch recovers on its own.
+            const int maxAttempts = 6;
+            for (int attempt = 1; attempt <= maxAttempts; attempt++)
+            {
+                if (await TryInitRecognizer(attempt)) return;
+                if (attempt < maxAttempts) await Task.Delay(1500);
+            }
+            Debug.LogError("[Voice] Speech recognizer could not initialize after retries — microphone unavailable this " +
+                           "session. If this persists, check Settings ▸ Privacy ▸ Microphone (and 'Online speech " +
+                           "recognition') on the HoloLens.");
+        }
+
+        // One initialization attempt. Returns true once the recognizer is built, constraints compiled,
+        // events wired and listening started. On any failure it disposes the half-built recognizer so the
+        // next attempt starts clean, and returns false (the caller waits, then retries).
+        private async Task<bool> TryInitRecognizer(int attempt)
+        {
             try
             {
+                if (speechRecognizer != null)
+                {
+                    try { speechRecognizer.Dispose(); } catch { }
+                    speechRecognizer = null;
+                }
+                _recognizerReady = false;
+
                 // Force ENGLISH recognition explicitly. The parameterless constructor uses the device
                 // language, and nearby conversation in another language (e.g. Romanian) gets transcribed
                 // as garbled English "commands". Falls back to the device default if en-US is missing.
@@ -235,9 +265,8 @@ namespace EchoRealm.AI
                 }
 
                 // Use free-form dictation (understands any phrase)
-                var dictationConstraint = new SpeechRecognitionTopicConstraint(
-                    SpeechRecognitionScenario.Dictation, "EchoRealmDictation");
-                speechRecognizer.Constraints.Add(dictationConstraint);
+                speechRecognizer.Constraints.Add(new SpeechRecognitionTopicConstraint(
+                    SpeechRecognitionScenario.Dictation, "EchoRealmDictation"));
 
                 // Don't let the session die during quiet stretches (e.g. the Act 1 intro).
                 try
@@ -251,8 +280,9 @@ namespace EchoRealm.AI
                 var compileResult = await speechRecognizer.CompileConstraintsAsync();
                 if (compileResult.Status != SpeechRecognitionResultStatus.Success)
                 {
-                    Debug.LogError($"[Voice] Failed to compile speech constraints: {compileResult.Status}");
-                    return;
+                    // Common on a cold relaunch before the mic device is ready (e.g. MicrophoneUnavailable).
+                    Debug.LogWarning($"[Voice] Constraint compile attempt {attempt} failed: {compileResult.Status} — retrying shortly.");
+                    return false;
                 }
 
                 // Wire up continuous recognition events
@@ -260,14 +290,19 @@ namespace EchoRealm.AI
                 speechRecognizer.ContinuousRecognitionSession.Completed += OnSpeechSessionCompleted;
                 speechRecognizer.HypothesisGenerated += OnSpeechHypothesis;
 
-                Log("Speech recognizer initialized. Ready to listen.");
+                _recognizerReady = true;
+                Log($"Speech recognizer initialized (attempt {attempt}). Ready to listen.");
 
                 if (continuousListening)
                     StartListening();
+                return true;
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[Voice] Speech recognition init failed: {ex.Message}");
+                Debug.LogWarning($"[Voice] Speech init attempt {attempt} threw: {ex.Message} — retrying shortly.");
+                try { if (speechRecognizer != null) { speechRecognizer.Dispose(); speechRecognizer = null; } } catch { }
+                _recognizerReady = false;
+                return false;
             }
         }
 

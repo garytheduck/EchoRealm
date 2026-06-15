@@ -26,7 +26,6 @@ namespace EchoRealm.Film
             "Find the Origin Echo — the grove's heart — and you may send him back.",
             "Speak... and the world will answer."
         };
-        [SerializeField] private float introLinePause = 3f;
 
         [Tooltip("Appended AFTER the intro lines: states the traveler's problem and invites the " +
                  "audience to intervene at any moment. (New field — the scene predates it, so these " +
